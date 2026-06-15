@@ -60,6 +60,8 @@ let config = JSON.parse(localStorage.getItem('config')) || {
 // [개선] 날짜별 과제 설정을 별도 보관하는 스토리지 로드
 let dailyAssignments = JSON.parse(localStorage.getItem('dailyAssignments')) || {};
 let pendingRequests = JSON.parse(localStorage.getItem('pendingRequests')) || {};
+let absentLogs = JSON.parse(localStorage.getItem('absentLogs')) || {};
+let processedDeductionDates = JSON.parse(localStorage.getItem('processedDeductionDates')) || [];
 let teacherPasscode = localStorage.getItem('teacherPasscode') || '1234';
 let referrerView = "login";
 let currentDashboardDate = getTodayDateString();
@@ -114,6 +116,8 @@ const saveData = () => {
   localStorage.setItem('config', JSON.stringify(config));
   localStorage.setItem('dailyAssignments', JSON.stringify(dailyAssignments));
   localStorage.setItem('pendingRequests', JSON.stringify(pendingRequests));
+  localStorage.setItem('absentLogs', JSON.stringify(absentLogs));
+  localStorage.setItem('processedDeductionDates', JSON.stringify(processedDeductionDates));
 };
 
 // ==========================================================================
@@ -652,6 +656,131 @@ const allUnsubmittedDeduct = (baseDateStr) => {
   document.getElementById('bulk-deduct-confirm-modal').classList.remove('hidden');
 };
 
+// 날짜 문자열(YYYY-MM-DD)을 현지 시간 Date 객체로 변환
+const parseLocalDate = (dateStr) => {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+
+// Date 객체를 현지 시간 YYYY-MM-DD 문자열로 변환
+const formatLocalDate = (dateObj) => {
+  const y = dateObj.getFullYear();
+  const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const d = String(dateObj.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+// 평일 일수(주말 제외) 계산 헬퍼 함수
+const getWeekdaysBetween = (startDateStr, endDateStr) => {
+  const start = parseLocalDate(startDateStr);
+  const end = parseLocalDate(endDateStr);
+  const weekdays = [];
+  
+  const current = new Date(start);
+  current.setDate(current.getDate() + 1);
+  while (current <= end) {
+    const day = current.getDay();
+    if (day !== 0 && day !== 6) { // 0: 일요일, 6: 토요일 제외
+      weekdays.push(formatLocalDate(current));
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  return weekdays;
+};
+
+// 미제출 과제에 대한 일일 자동 감점 처리 (평일 기준, 결석생 하루 유예 적용)
+const processAutoDeductions = () => {
+  const todayStr = getTodayDateString();
+  
+  const assignmentDates = Object.keys(dailyAssignments).sort();
+  if (assignmentDates.length === 0) return;
+  
+  const oldestDateStr = assignmentDates[0];
+  
+  const today = parseLocalDate(todayStr);
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const yesterdayStr = formatLocalDate(yesterday);
+  
+  // oldestDateStr 다음날부터 어제까지의 평일 목록 구하기
+  const candidates = getWeekdaysBetween(oldestDateStr, yesterdayStr);
+  const datesToProcess = candidates.filter(d => !processedDeductionDates.includes(d));
+  
+  if (datesToProcess.length === 0) return;
+  
+  let totalDeductionsCount = 0;
+  
+  datesToProcess.forEach(processDate => {
+    students.forEach(student => {
+      assignmentDates.forEach(assignDate => {
+        if (assignDate >= processDate) return;
+        
+        const tasks = dailyAssignments[assignDate] || [];
+        const dayLogs = dailyLogs[assignDate] || {};
+        const studentLog = dayLogs[student.student_id] || {};
+        const isAbsent = (absentLogs[assignDate] && absentLogs[assignDate][student.student_id] === true);
+        
+        const weekdaysSinceAssign = getWeekdaysBetween(assignDate, processDate);
+        if (weekdaysSinceAssign.length === 0) return;
+        
+        const firstWeekdayAfter = weekdaysSinceAssign[0];
+        
+        // 결석한 학생은 첫 번째 평일의 미제출 감점 유예 (하루 유예)
+        if (isAbsent && processDate === firstWeekdayAfter) {
+          return;
+        }
+        
+        tasks.forEach(task => {
+          let isCompletedOnProcessDate = false;
+          
+          if (studentLog[task.id] === true) {
+            // pointHistory에서 완료 로그(points_changed > 0) 중 가장 최신 것을 역순 검색
+            const compLog = [...pointHistory].reverse().find(log => 
+              log.student_id === student.student_id && 
+              log.assignment_date === assignDate && 
+              log.task_id === task.id && 
+              log.points_changed > 0
+            );
+            if (compLog) {
+              const compDate = compLog.timestamp.substring(0, 10);
+              if (compDate <= processDate) {
+                isCompletedOnProcessDate = true;
+              }
+            } else {
+              isCompletedOnProcessDate = true;
+            }
+          }
+          
+          if (!isCompletedOnProcessDate) {
+            student.total_points = Math.max(0, (student.total_points || 0) - 1);
+            
+            const reason = `${task.name} 미제출 자동 감점 (-1점) [${assignDate}]${isAbsent ? ' (결석 유예 적용)' : ''}`;
+            
+            pointHistory.push({
+              student_id: student.student_id,
+              timestamp: new Date(processDate + 'T18:00:00').toISOString(),
+              points_changed: -1,
+              reason: reason,
+              assignment_date: assignDate,
+              task_id: task.id,
+              is_auto_deduction: true
+            });
+            
+            totalDeductionsCount++;
+          }
+        });
+      });
+    });
+    
+    processedDeductionDates.push(processDate);
+  });
+  
+  saveData();
+  if (totalDeductionsCount > 0) {
+    console.log(`[자동 감점] 처리된 평일: ${datesToProcess.join(', ')}. 총 감점 건수: ${totalDeductionsCount}`);
+  }
+};
+
 let dragSourceIndex = null;
 
 const handleDragStart = (e, index) => {
@@ -753,8 +882,11 @@ const renderTeacherDashboard = () => {
         smallGradeHtml = `<span class="small-grade-emoji" title="${grade.name}">${grade.emoji || '🌱'}</span>`;
       }
 
+      const isAbsent = (absentLogs[todayStr] && absentLogs[todayStr][student.student_id] === true);
+      const absentBadgeHtml = isAbsent ? `<span class="absent-badge" title="결석 (미제출 감점 유예 적용)">🤒 결석</span>` : '';
+      
       const card = document.createElement('div');
-      card.className = `student-card ${allComplete ? 'all-complete' : ''}`;
+      card.className = `student-card ${allComplete ? 'all-complete' : ''} ${isAbsent ? 'student-absent' : ''}`;
       card.onclick = (e) => openAssignmentModalByCard(e, student.student_id);
       
       card.setAttribute('draggable', 'true');
@@ -771,6 +903,7 @@ const renderTeacherDashboard = () => {
           <span class="student-number-badge">${student.student_id}</span>
           <span class="student-name-text">${student.name}</span>
           ${smallGradeHtml}
+          ${absentBadgeHtml}
           <span class="student-points-text">(${student.total_points}점)</span>
         </div>
         ${tasksHtml}
@@ -1318,11 +1451,16 @@ const renderDailyRecordsTable = () => {
   // 2. 바디 동적 그리기
   students.forEach(student => {
     const studentLog = dayLogs[student.student_id] || {};
+    const isAbsent = (absentLogs[selectedRecordDate] && absentLogs[selectedRecordDate][student.student_id] === true);
     
     const tr = document.createElement('tr');
+    if (isAbsent) {
+      tr.style.backgroundColor = 'rgba(239, 68, 68, 0.05)';
+    }
     
     // 번호, 이름 <td>
-    let rowHtml = `<td>${student.student_id}</td><td style="font-weight:bold;">${student.name}</td>`;
+    const nameDisplay = isAbsent ? `${student.name} <span style="font-size:11px; padding:2px 4px; border-radius:3px; background:#ef4444; color:white; font-weight:bold; margin-left:4px;">🤒 결석</span>` : student.name;
+    let rowHtml = `<td>${student.student_id}</td><td style="font-weight:bold;">${nameDisplay}</td>`;
     
     // 과제 개수만큼 체크박스 동적 생성
     tasks.forEach(t => {
@@ -1966,7 +2104,19 @@ const openAssignmentModal = (student) => {
   // 2. 동적 체크박스 목록 그리기
   document.getElementById('modal-title').innerText = `${student.student_id}번 ${student.name} - 오늘 과제 체크하기`;
 
+  const isAbsent = (absentLogs[todayStr] && absentLogs[todayStr][student.student_id] === true);
+
   let checkboxGroupHtml = '<div class="large-checkbox-group">';
+  
+  // 결석 여부 조작 체크박스 추가
+  checkboxGroupHtml += `
+    <label class="large-checkbox-label" style="border-color:#ef4444; background:rgba(239, 68, 68, 0.04); margin-bottom: 15px;">
+      <input type="checkbox" id="modal-absent-checkbox" ${isAbsent ? 'checked' : ''}>
+      <span class="checkbox-custom" style="border-color:#ef4444;"></span>
+      <span class="label-text" style="color:#ef4444; font-weight:bold;">🤒 오늘 결석함 (과제 미제출 감점 하루 유예)</span>
+    </label>
+  `;
+
   todayTasks.forEach(task => {
     const checked = studentLog[task.id] === true;
     checkboxGroupHtml += `
@@ -2019,6 +2169,13 @@ const closeModal = () => {
 const saveAssignmentChanges = () => {
   if (!activeStudent) return;
   const todayStr = currentDashboardDate;
+  
+  // 결석 상태 저장
+  const absentCheckbox = document.getElementById('modal-absent-checkbox');
+  if (absentCheckbox) {
+    if (!absentLogs[todayStr]) absentLogs[todayStr] = {};
+    absentLogs[todayStr][activeStudent.student_id] = absentCheckbox.checked;
+  }
   
   if (!dailyLogs[todayStr]) dailyLogs[todayStr] = {};
   const oldLog = dailyLogs[todayStr][activeStudent.student_id] || {};
@@ -2674,6 +2831,8 @@ const exportClassroomData = () => {
     config: JSON.parse(localStorage.getItem('config')),
     dailyAssignments: JSON.parse(localStorage.getItem('dailyAssignments')),
     pendingRequests: JSON.parse(localStorage.getItem('pendingRequests')) || {},
+    absentLogs: JSON.parse(localStorage.getItem('absentLogs')) || {},
+    processedDeductionDates: JSON.parse(localStorage.getItem('processedDeductionDates')) || [],
     teacherPasscode: localStorage.getItem('teacherPasscode') || '1234'
   };
 
@@ -2729,6 +2888,8 @@ const importClassroomData = (event) => {
       localStorage.setItem('config', JSON.stringify(data.config || {}));
       localStorage.setItem('dailyAssignments', JSON.stringify(data.dailyAssignments || {}));
       localStorage.setItem('pendingRequests', JSON.stringify(data.pendingRequests || {}));
+      localStorage.setItem('absentLogs', JSON.stringify(data.absentLogs || {}));
+      localStorage.setItem('processedDeductionDates', JSON.stringify(data.processedDeductionDates || []));
       localStorage.setItem('teacherPasscode', String(data.teacherPasscode || '1234'));
 
       alert("🎉 학급 데이터 복원이 완료되었습니다. 최신 정보를 반영하기 위해 대시보드를 새로고침합니다.");
@@ -3267,6 +3428,7 @@ const initAnnouncementEditor = () => {
 window.addEventListener('hashchange', router);
 window.onload = () => {
   initDatabaseMigration(); // 데이터 로드 마이그레이션 적용
+  processAutoDeductions(); // 미제출 과제 자동 감점 실행
   
   // 테마 및 볼륨 초기화
   const savedTheme = localStorage.getItem('theme') || 'light';

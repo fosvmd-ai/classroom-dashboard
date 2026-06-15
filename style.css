@@ -2521,4 +2521,25 @@ button.btn-danger:hover {
   border-color: #854d0e;
 }
 
+/* 결석생 스타일 및 배지 */
+.student-card.student-absent {
+  border-color: #ef4444 !important;
+  background-color: rgba(239, 68, 68, 0.03) !important;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.05) !important;
+}
+.dark-theme .student-card.student-absent {
+  background-color: rgba(239, 68, 68, 0.08) !important;
+}
+.absent-badge {
+  background: #ef4444;
+  color: white;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 4px;
+  box-shadow: 0 1px 3px rgba(239, 68, 68, 0.3);
+}
+
+
 
