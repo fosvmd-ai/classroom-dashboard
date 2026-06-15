@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🏫 교실 신용점수 & 과제 대시보드</title>
+  <!-- Google Fonts: Outfit & Noto Sans KR -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Outfit:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- 메인 교사용 대시보드 및 관리자 뷰 -->
+  <div id="teacher-view" class="view-container">
+    <header class="app-header combined-header">
+      <!-- Left Side: Title & Tabs -->
+      <div class="header-left-group">
+        <div class="header-title-area">
+          <h1>🏫 우리 반 신용점수 & 과제 대시보드</h1>
+          <p class="subtitle">전자칠판 터치스크린 모드 | 실시간 자동 동기화</p>
+        </div>
+        <div class="header-navigation-area">
+          <div class="tab-buttons">
+            <button id="tab-btn-dashboard" class="tab-btn active" onclick="switchTab('dashboard')">📊 실시간 현황판</button>
+            <button id="tab-btn-records" class="tab-btn" onclick="switchTab('records')">🗓️ 일자별 과제 관리</button>
+            <button id="tab-btn-roster" class="tab-btn" onclick="switchTab('roster')">👥 학생 점수 관리</button>
+            <button id="tab-btn-grades" class="tab-btn" onclick="switchTab('grades')">🏆 신용등급 기준 설정</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Side: Controls (Timer, Actions) & Standalone Clock Box -->
+      <div class="header-right-group">
+        <div class="header-controls-area">
+          <!-- Top Row: Server badge -->
+          <div class="server-badge">
+            <span class="status-indicator online"></span>
+            <span id="ip-address">로컬 작동 중</span>
+          </div>
+
+          <!-- Bottom Row: Actions row -->
+          <div class="header-actions-timer-row">
+            <!-- Action buttons -->
+            <div class="header-actions-container">
+              <button class="back-btn" id="btn-theme-toggle" onclick="toggleTheme()" style="background:#6366f1; border-color:#4f46e5; font-weight:bold; cursor:pointer;">🌗 화면 조명</button>
+              <button class="back-btn" id="btn-volume-toggle" onclick="toggleVolume()" style="background:#f59e0b; border-color:#d97706; font-weight:bold; cursor:pointer;">🔊 소리 켬</button>
+              <button class="back-btn" onclick="openPickerModal()" style="background:#ec4899; border-color:#db2777; font-weight:bold; cursor:pointer;">🎲 발표자 추첨</button>
+              <button class="back-btn" onclick="openTimerModal()" style="background:#10b981; border-color:#059669; font-weight:bold; cursor:pointer;">⏱️ 모둠 타이머</button>
+              <a href="#student-login" class="back-btn" style="background:#2563eb; border-color:#3b82f6; text-decoration:none; text-align:center;">🛡️ 학생 수첩 조회</a>
+              <button class="back-btn" style="background:#475569; border-color:#64748b; font-weight:bold; cursor:pointer;" onclick="copyStudentPortalLink()">📋 링크 복사</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Standalone Digital Clock Box -->
+        <div class="clock-widget-box">
+          <div id="clock" class="digital-clock-large">00:00:00</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- 탭 1: 대시보드 (메인 화면) -->
+    <div id="tab-content-dashboard" class="tab-content main-layout">
+      <!-- 좌측: 학생 바둑판 카드 목록 (75%) -->
+      <section class="students-grid-section">
+        <!-- 📊 오늘의 학급 과제 달성률 현황판 -->
+        <div id="class-progress-area" class="class-progress-container">
+          <div class="class-progress-header">
+            <span>📊 오늘의 학급 과제 제출 달성률</span>
+            <span id="class-progress-text">제출률: 0% (완료 0 / 총 0건)</span>
+          </div>
+          <div class="class-progress-bar-bg">
+            <div id="class-progress-bar-fill" class="class-progress-bar-fill" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <div class="section-header">
+          <div style="display:flex; align-items:center; gap:16px;">
+            <h2 id="dashboard-date-title">👥 우리 반 학생 현황 (오늘)</h2>
+            <div class="dashboard-date-picker-area" style="display:flex; align-items:center; gap:8px;">
+              <input type="date" id="dashboard-date-picker" onchange="changeDashboardDate(this.value)" style="padding:6px 12px; font-size:14px; border:1px solid #cbd5e1; border-radius:var(--radius-sm); outline:none; font-family:var(--font-main); background-color:white; color:var(--text-main);">
+              <button class="btn-secondary" style="padding:6px 12px; font-size:13px; font-weight:bold; border-radius:var(--radius-sm);" onclick="resetDashboardDateToToday()">오늘로</button>
+              <button class="btn-success" style="padding:6px 12px; font-size:13px; font-weight:bold; border-radius:var(--radius-sm);" onclick="openCreateAssignmentModal(currentDashboardDate)">📝 과제 생성</button>
+              <button id="btn-all-unsubmitted-deduct" class="btn-danger hidden" style="padding:6px 12px; font-size:13px; font-weight:bold; border-radius:var(--radius-sm);" onclick="allUnsubmittedDeduct(currentDashboardDate)">📉 전체 미제출 감점</button>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <span class="legend">🟢 완료 | ⚪ 미완료</span>
+            <div class="view-mode-toggle" style="display:flex; align-items:center; gap:4px; background:#e2e8f0; padding:4px; border-radius:10px; border:1px solid #cbd5e1; height:44px;">
+              <button id="btn-view-students" class="btn-toggle" onclick="setDashboardViewMode('students')" style="padding:6px 16px; font-size:15px; font-weight:bold; border-radius:8px; border:none; cursor:pointer; background:#ffffff; color:var(--text-main); box-shadow:0 1px 3px rgba(0,0,0,0.1); height:100%; display:inline-flex; align-items:center;">👥 학생별</button>
+              <button id="btn-view-unsubmitted" class="btn-toggle" onclick="setDashboardViewMode('unsubmitted')" style="padding:6px 16px; font-size:15px; font-weight:bold; border-radius:8px; border:none; cursor:pointer; background:transparent; color:var(--text-muted); height:100%; display:inline-flex; align-items:center;">📚 과제별 미제출자</button>
+            </div>
+          </div>
+        </div>
+        <!-- 과제 이모지 매핑 설명 칸 -->
+        <div id="assignment-legend-bar" class="assignment-legend-bar hidden"></div>
+        <div id="students-grid" class="students-grid">
+          <!-- JS에서 동적으로 생성됨 -->
+        </div>
+        <!-- 과제별 미제출자 목록 영역 -->
+        <div id="unsubmitted-container" class="unsubmitted-container hidden">
+          <!-- JS에서 동적으로 생성됨 -->
+        </div>
+      </section>
+
+      <!-- 우측: 교실 유틸리티 사이드바 (25%) -->
+      <aside class="sidebar-section">
+        <!-- 📢 오늘의 알림장 -->
+        <div class="widget-card announcement-widget" style="cursor: text;">
+          <div class="widget-header">
+            <h3>📢 오늘의 알림장 <span style="font-size:11px; color:var(--text-muted); font-weight:normal; margin-left:6px;">(클릭 시 즉시 편집 가능)</span></h3>
+          </div>
+          <div class="widget-body">
+            <p id="announcement-content" contenteditable="true" style="outline: none; width: 100%; min-height: 120px;">로딩 중...</p>
+          </div>
+        </div>
+
+        <!-- 📥 과제 승인 대기 내역 -->
+        <div id="approvals-widget" class="widget-card approvals-widget hidden">
+          <div class="widget-header" style="border-bottom-color: rgba(56, 189, 248, 0.2);">
+            <h3 style="display:flex; align-items:center; gap:8px;">📥 과제 완료 승인 요청</h3>
+            <span id="approval-count-badge" class="approval-badge-count">0</span>
+          </div>
+          <div class="widget-body" style="padding: 6px 0;">
+            <ul id="approval-requests-list" class="approval-requests-list" style="list-style: none; margin: 0; padding: 0;">
+              <!-- JS에서 동적으로 생성됨 -->
+            </ul>
+          </div>
+        </div>
+
+        <!-- 🏆 금주의 신용 성장왕 -->
+        <div class="widget-card leaderboard-widget">
+          <div class="widget-header">
+            <h3>🏆 금주의 신용 성장왕</h3>
+            <span class="widget-sub">최근 7일 누적</span>
+          </div>
+          <div class="widget-body">
+            <ol id="leaderboard-list" class="leaderboard-list">
+              <!-- JS에서 동적으로 생성됨 -->
+            </ol>
+          </div>
+        </div>
+
+
+      </aside>
+    </div>
+
+    <!-- 탭 2: 일자별 과제 관리 -->
+    <div id="tab-content-records" class="tab-content panel-card hidden">
+      
+      <!-- 서브뷰 1: 월간 달력 보기 화면 -->
+      <div id="records-calendar-view" class="records-subview">
+        <div class="panel-header">
+          <h2>🗓️ 일자별 과제 달력</h2>
+          <div class="calendar-navigator">
+            <button class="nav-btn" onclick="navigateMonth(-1)">◀️ 이전 달</button>
+            <span id="calendar-month-year" class="calendar-title">2026년 06월</span>
+            <button class="nav-btn" onclick="navigateMonth(1)">▶️ 다음 달</button>
+          </div>
+        </div>
+        <p class="panel-desc">날짜 칸을 선택하면 해당 일자의 학생별 과제 제출 체크 테이블로 이동합니다. 비어있는 날짜를 선택하면 새로 과제판을 생성할 수 있습니다.</p>
+        
+        <!-- 달력 월간 테이블 -->
+        <div class="calendar-container">
+          <div class="calendar-days-header">
+            <div class="day-head sun">일</div>
+            <div class="day-head">월</div>
+            <div class="day-head">화</div>
+            <div class="day-head">수</div>
+            <div class="day-head">목</div>
+            <div class="day-head">금</div>
+            <div class="day-head sat">토</div>
+          </div>
+          <div id="calendar-days-grid" class="calendar-days-grid">
+            <!-- JS 동적 생성 -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 서브뷰 2: 특정 날짜 상세 학생 과제 체크 화면 -->
+      <div id="records-detail-view" class="records-subview hidden">
+        <div class="panel-header">
+          <div style="display:flex; align-items:center; gap:16px;">
+            <button class="back-btn" onclick="showCalendarView()">⬅️ 달력으로 돌아가기</button>
+            <h2 id="detail-date-title">2026-06-11 과제 제출 상세</h2>
+          </div>
+          <button class="btn-danger" onclick="deleteCurrentDayAssignments()">🗑️ 오늘 과제판 전체 삭제</button>
+        </div>
+        <p class="panel-desc">체크박스를 조작하면 해당 학생의 신용점수가 즉시 가감되고 이력이 자동 저장됩니다.</p>
+        
+        <div class="table-responsive">
+          <table class="admin-table">
+            <thead id="detail-table-thead">
+              <!-- JS 동적 생성 -->
+            </thead>
+            <tbody id="records-table-body">
+              <!-- JS 동적 생성 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 탭 3: 학생 점수 관리 (명단 편집은 서브 메뉴로 분리) -->
+    <div id="tab-content-roster" class="tab-content panel-card hidden">
+      <div class="panel-header">
+        <h2>👥 학생 점수 관리</h2>
+        <div class="panel-actions">
+          <button class="btn-primary" onclick="openRosterBulkModal()">📋 명단 일괄 등록/수정</button>
+          <button class="btn-secondary" onclick="openRosterDetailModal()">⚙️ 명단 상세 수정 (추가/삭제)</button>
+          <button class="btn-success" onclick="saveRosterPoints()">💾 점수 저장하기</button>
+        </div>
+      </div>
+      <p class="panel-desc">학생들의 누적 신용 점수를 직접 수정하고 저장할 수 있습니다. 학생 추가/삭제 및 이름 수정은 상단의 <strong>[명단 수정]</strong> 메뉴들을 클릭해 주세요.</p>
+
+      <div class="table-responsive">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th width="80px">번호</th>
+              <th width="150px">이름</th>
+              <th width="150px">현재 누적 점수</th>
+              <th width="180px">수정할 점수 (직접 입력)</th>
+              <th>점수 변동 사유 (기록용)</th>
+              <th width="100px">개인 수첩</th>
+            </tr>
+          </thead>
+          <tbody id="roster-points-table-body">
+            <!-- JS 동적 생성 (점수 관리 테이블) -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 탭 4: 신용등급 기준 설정 -->
+    <div id="tab-content-grades" class="tab-content panel-card hidden">
+      <div class="panel-header">
+        <h2>🏆 신용등급 기준 설정</h2>
+        <div class="panel-actions">
+          <button class="btn-primary" onclick="openGradesBulkModal()">📋 등급 일괄 등록/수정</button>
+          <button class="btn-secondary" onclick="addNewGradeRow()">➕ 등급 추가</button>
+          <button class="btn-success" onclick="saveGradesConfig()">💾 등급 설정 저장하기</button>
+        </div>
+      </div>
+      <p class="panel-desc">점수 구간별 신용등급의 등급명과 기준 커트라인 점수를 설정할 수 있습니다. 우측 ❌ 버튼을 통해 등급 개수를 자유롭게 가감할 수 있습니다.</p>
+
+      <div class="table-responsive">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th width="150px">선택형 이모지</th>
+              <th width="200px">등급 이미지 등록 (업로드 시 이모지 대신 사용)</th>
+              <th>등급명</th>
+              <th>최소 요구 점수</th>
+              <th width="100px">삭제</th>
+            </tr>
+          </thead>
+          <tbody id="grades-table-body">
+            <!-- JS 동적 생성 -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 🔒 교사용 비밀번호 설정 및 데이터 백업/복원 -->
+      <div style="margin-top: 30px; padding-top: 20px; border-top: 2px dashed var(--border-color); display: flex; flex-direction: column; gap: 16px;">
+        <!-- 비밀번호 변경 행 -->
+        <div style="display: flex; align-items: center; gap: 16px; justify-content: flex-end; flex-wrap: wrap;">
+          <h3 style="font-size: 15px; font-weight: 700; color: var(--text-main); margin: 0;">🔒 교사용 관리 대시보드 비밀번호 설정:</h3>
+          <input type="password" id="teacher-passcode-input" placeholder="비밀번호 입력 (기본: 1234)" style="width: 180px; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: var(--radius-sm); outline: none; font-size: 14px; text-align: center;">
+          <button class="btn-primary" onclick="saveTeacherPasscode()" style="padding: 8px 16px; font-size: 14px; cursor: pointer;">비밀번호 변경</button>
+        </div>
+        
+        <!-- 데이터 백업 & 복원 행 -->
+        <div style="display: flex; align-items: center; gap: 16px; justify-content: flex-end; flex-wrap: wrap; margin-top: 4px;">
+          <h3 style="font-size: 15px; font-weight: 700; color: var(--text-main); margin: 0;">📂 학급 데이터 백업 및 복원:</h3>
+          <button class="btn-success" onclick="exportClassroomData()" style="padding: 8px 16px; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">📥 데이터 내보내기 (백업)</button>
+          <button class="btn-secondary" onclick="triggerImportFileInput()" style="padding: 8px 16px; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; background-color: #4f46e5; border-color: #4f46e5;">📤 데이터 가져오기 (복원)</button>
+          <input type="file" id="import-data-file-input" onchange="importClassroomData(event)" accept=".json" style="display: none;">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- [NEW] 학생 조회용 포털 로그인 뷰 -->
+  <div id="student-login-view" class="view-container hidden" style="justify-content:center; align-items:center; background: linear-gradient(135deg, #0f172a, #1e293b); padding: 40px 20px;">
+    <div class="portal-card" style="width:400px; padding:32px; box-shadow: var(--shadow-premium); text-align:center; background: rgba(255, 255, 255, 0.95); border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
+      <h1 style="font-size:24px; font-weight:900; color:#1e3a8a; margin-bottom:8px;">🛡️ 내 신용 수첩 조회</h1>
+      <p style="font-size:13px; color:var(--text-muted); margin-bottom:24px;">학번과 이름을 입력하여 내 신용 점수를 조회해 보세요.</p>
+      
+      <div style="display:flex; flex-direction:column; gap:16px; text-align:left; margin-bottom:20px;">
+        <div>
+          <label style="font-size:13px; font-weight:700; color:var(--text-main); display:block; margin-bottom:6px;">학번/번호 (두 자리 예: 01)</label>
+          <input type="text" id="login-student-id" placeholder="예: 05" style="width:100%; padding:10px 14px; font-size:15px; border:1px solid #cbd5e1; border-radius:var(--radius-sm); outline:none; background-color:white; color:var(--text-main);">
+        </div>
+        <div>
+          <label style="font-size:13px; font-weight:700; color:var(--text-main); display:block; margin-bottom:6px;">이름</label>
+          <input type="text" id="login-student-name" placeholder="예: 홍길동" style="width:100%; padding:10px 14px; font-size:15px; border:1px solid #cbd5e1; border-radius:var(--radius-sm); outline:none; background-color:white; color:var(--text-main);">
+        </div>
+      </div>
+      
+      <p id="login-error-msg" style="font-size:13px; color:var(--danger-color); font-weight:700; margin-bottom:16px;" class="hidden">⚠️ 학번 또는 이름이 일치하지 않습니다.</p>
+      
+      <button class="btn-primary btn-large" style="width:100%; font-size:16px; padding:12px; margin-top:10px;" onclick="submitStudentLogin()">🛡️ 내 수첩 조회하기</button>
+      
+      <!-- 교사용 관리자 로그인 링크 -->
+      <div style="margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 16px; text-align: right;">
+        <a href="javascript:void(0)" onclick="promptTeacherLogin()" style="font-size: 13px; color: var(--text-muted); text-decoration: none; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;">🔒 교사용 관리 대시보드</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 학생 전용 개인 포털 뷰 -->
+  <div id="student-view" class="view-container hidden">
+    <header class="app-header student-header">
+      <button onclick="goBackToStudentPortalLogin()" class="back-btn">⬅️ 조회 화면으로 돌아가기</button>
+      <div class="student-header-title">
+        <h1 id="portal-student-title">🛡️ 학생 신용 수첩</h1>
+        <p class="subtitle">개인 모바일 전용 안전 조회 화면</p>
+      </div>
+    </header>
+
+    <main class="portal-main-layout">
+      <!-- 상단: 점수 및 등급 정보 요약 -->
+      <section class="portal-summary-card">
+        <div class="portal-score-area">
+          <span class="label">내 신용점수</span>
+          <span id="portal-points" class="points-val">0점</span>
+        </div>
+        <div class="portal-grade-area">
+          <span class="label">신용등급</span>
+          <div class="grade-badge">
+            <img id="portal-grade-icon" src="" alt="등급 아이콘" class="grade-icon hidden">
+            <span id="portal-grade-emoji" class="grade-emoji">🌱</span>
+            <span id="portal-grade-name" class="grade-name">새싹 등급</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 📢 오늘의 알림장 -->
+      <section class="portal-card announcement-card" style="margin-bottom: 20px; background: #fffdf0; border-color: #fde047;">
+        <h3 style="color: #713f12; border-bottom-color: #fef08a; margin-bottom:10px;">📢 오늘의 알림장</h3>
+        <p id="portal-announcement-content" style="font-size: 18px; line-height: 1.6; color: #713f12; white-space: pre-wrap; font-weight: bold; padding: 10px 0; text-align: center; margin: 0;">알림장이 없습니다.</p>
+      </section>
+
+      <!-- 중단: 오늘 과제 & 미제출 과제 (Option B) -->
+      <section class="portal-content-grid">
+        <div class="portal-card task-card">
+          <h3>오늘의 과제 수행 현황</h3>
+          <ul id="portal-task-list" class="task-status-list">
+            <!-- 동적 생성 -->
+          </ul>
+        </div>
+
+        <div class="portal-card outstanding-card">
+          <h3>⚠️ 밀린 과제 내역 (최근 7일)</h3>
+          <div id="portal-outstanding-list" class="outstanding-list">
+            <!-- 동적 삽입 -->
+          </div>
+        </div>
+      </section>
+
+      <!-- 하단: 신용 점수 변동 이력 -->
+      <section class="portal-card history-card">
+        <h3>📈 신용점수 변동 이력 (최근 15건)</h3>
+        <div id="portal-history-list" class="history-list-container">
+          <!-- 동적 삽입 -->
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- 과제 체크 팝업 모달창 (Alert) -->
+  <div id="assignment-modal" class="modal hidden">
+    <div class="modal-overlay" onclick="closeModal()"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modal-title">00번 홍길동 - 과제 체크 및 QR 조회</h2>
+        <button class="close-btn" onclick="closeModal()">&times;</button>
+      </div>
+      <div id="modal-dashboard-body" class="modal-body">
+        <!-- JS에서 오늘의 과제 폼을 동적으로 그림 -->
+      </div>
+    </div>
+  </div>
+
+  <!-- [NEW] 비어있는 날짜 과제 생성용 모달창 -->
+  <div id="create-assignment-modal" class="modal hidden">
+    <div class="modal-overlay" onclick="closeCreateAssignmentModal()"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="create-modal-title">📅 새 과제판 생성하기 (2026-06-12)</h2>
+        <button class="close-btn" onclick="closeCreateAssignmentModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="flex-direction:column; gap:20px; padding:30px;">
+        
+        <!-- 기존 과제 목록 정보 영역 (추가 시 노출) -->
+        <div id="existing-tasks-container" style="width:100%; padding:14px; background:rgba(0, 0, 0, 0.03); border-radius:8px; border:1px solid #e2e8f0; display:none;">
+          <h4 style="margin:0 0 8px 0; font-size:14px; font-weight:700; color:var(--text-main);">📋 현재 등록된 과제 목록:</h4>
+          <ul id="existing-tasks-list" style="margin:0; padding-left:20px; font-size:13px; color:var(--text-muted); line-height:1.6;">
+            <!-- 동적 추가 -->
+          </ul>
+        </div>
+
+        <div class="create-modal-row" style="display:flex; align-items:center; gap:12px; font-size:16px; font-weight:bold;">
+          <label for="create-task-count">과제 개수 선택: </label>
+          <select id="create-task-count" style="padding:8px 16px; font-size:15px; border-radius:var(--radius-sm); border:1px solid #cbd5e1;">
+            <option value="1" selected>1개</option>
+            <option value="2">2개</option>
+            <option value="3">3개</option>
+            <option value="4">4개</option>
+            <option value="5">5개</option>
+          </select>
+        </div>
+        
+        <p id="create-modal-desc" style="font-size:13px; color:var(--text-muted);">이 날짜의 과제 이름과 체크 시 완료 점수를 각각 설정해 주세요.</p>
+        
+        <!-- 동적 입력 영역 (개수 선택에 따라 바뀜) -->
+        <div id="create-task-inputs-container" style="display:flex; flex-direction:column; gap:12px; width:100%;">
+          <!-- JS 동적 생성 -->
+        </div>
+
+        <!-- 덮어쓰기 모드 체크박스 (추가 시 노출) -->
+        <div id="create-modal-mode-container" style="width:100%; display:flex; align-items:center; gap:8px; display:none;">
+          <input type="checkbox" id="overwrite-existing-tasks" onchange="toggleOverwriteMode(this.checked)" style="width:16px; height:16px; cursor:pointer;">
+          <label for="overwrite-existing-tasks" style="font-size:13px; color:#ef4444; font-weight:700; cursor:pointer; user-select:none;">
+            ⚠️ 기존 과제 및 제출 기록 모두 삭제하고 새로 만들기 (덮어쓰기)
+          </label>
+        </div>
+
+        <div class="modal-actions" style="width:100%; display:flex; gap:10px; margin-top:10px;">
+          <button id="btn-submit-assignment" class="btn-success btn-large" onclick="submitCreateAssignments()">과제판 생성하기</button>
+          <button class="btn-danger btn-large" onclick="closeCreateAssignmentModal()">취소</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- [NEW] 학생 명단 일괄 등록 모달창 -->
+  <div id="roster-bulk-modal" class="modal hidden">
+    <div class="modal-overlay" onclick="closeRosterBulkModal()"></div>
+    <div class="modal-content" style="width: 500px;">
+      <div class="modal-header">
+        <h2>📋 학생 명단 일괄 등록/수정</h2>
+        <button class="close-btn" onclick="closeRosterBulkModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="flex-direction:column; gap:16px; padding:24px;">
+        <p style="font-size:13px; color:var(--text-muted); line-height:1.5;">
+          학생 이름을 <strong>한 줄에 한 명씩(엔터로 구분)</strong> 입력해 주세요.<br>
+          입력된 순서대로 01번부터 번호가 자동으로 부여됩니다.
+        </p>
+        <textarea id="bulk-roster-textarea" rows="15" style="width:100%; padding:12px; font-size:15px; font-family:var(--font-main); border:1px solid #cbd5e1; border-radius:var(--radius-sm); resize:vertical; outline:none; line-height:1.6; background-color:white; color:var(--text-main);" placeholder="김철수&#10;이영희&#10;박민수"></textarea>
+        <div class="modal-actions" style="width:100%; display:flex; gap:10px; margin-top:10px;">
+          <button class="btn-success btn-large" onclick="submitBulkRoster()">💾 명단 반영하기</button>
+          <button class="btn-danger btn-large" onclick="closeRosterBulkModal()">취소</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- [NEW] 학생 명단 상세 수정 모달창 -->
+  <div id="roster-detail-modal" class="modal hidden">
+    <div class="modal-overlay" onclick="closeRosterDetailModal()"></div>
+    <div class="modal-content" style="width: 700px; max-height: 85vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <h2>⚙️ 학생 명단 상세 수정 (추가/삭제)</h2>
+        <button class="close-btn" onclick="closeRosterDetailModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="flex-direction:column; gap:16px; padding:24px; overflow-y:auto; flex: 1;">
+        <p style="font-size:13px; color:var(--text-muted); line-height:1.5; margin-bottom: 8px;">
+          학번과 학생 이름을 개별 수정하거나 신규 학생을 추가/삭제할 수 있습니다.<br>
+          수정 완료 후 반드시 하단의 <strong>[명단 저장하기]</strong> 버튼을 눌러주셔야 반영됩니다.
+        </p>
+        <div style="display:flex; justify-content: flex-end; gap:8px; margin-bottom:8px;">
+          <button class="btn-secondary" onclick="addNewStudentRow()">➕ 학생 추가</button>
+        </div>
+        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th width="150px">학번/번호 (예: 01)</th>
+                <th>학생 이름</th>
+                <th width="120px">삭제</th>
+              </tr>
+            </thead>
+            <tbody id="roster-table-body">
+              <!-- JS 동적 생성 (기존 명단 관리 테이블) -->
+            </tbody>
+          </table>
+        </div>
+        <div class="modal-actions" style="width:100%; display:flex; gap:10px; margin-top:10px; border-top:1px solid var(--border-color); padding-top: 15px;">
+          <button class="btn-success btn-large" onclick="saveRoster()">💾 명단 저장하기</button>
+          <button class="btn-danger btn-large" onclick="closeRosterDetailModal()">취소</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- [NEW] 신용 등급 일괄 등록 모달창 -->
+  <div id="grades-bulk-modal" class="modal hidden">
+    <div class="modal-overlay" onclick="closeGradesBulkModal()"></div>
+    <div class="modal-content" style="width: 500px;">
+      <div class="modal-header">
+        <h2>📋 신용 등급 일괄 등록/수정</h2>
+        <button class="close-btn" onclick="closeGradesBulkModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="flex-direction:column; gap:16px; padding:24px;">
+        <p style="font-size:13px; color:var(--text-muted); line-height:1.5;">
+          등급 정보를 <strong>한 줄에 한 등급씩</strong> 아래 형식으로 입력해 주세요.<br>
+          <strong>형식: 등급명, 최소점수, 이모지</strong> (예: 신용 새싹, 0, 🌱)<br>
+          <span style="color:var(--danger-color);">* 이모지를 생략하면 ⭐이 기본 지정되며, 쉼표(,)로 구분해 주세요.</span>
+        </p>
+        <textarea id="bulk-grades-textarea" rows="12" style="width:100%; padding:12px; font-size:15px; font-family:var(--font-main); border:1px solid #cbd5e1; border-radius:var(--radius-sm); resize:vertical; outline:none; line-height:1.6; background-color:white; color:var(--text-main);" placeholder="신용 새싹, 0, 🌱&#10;신용 일반, 30, 🥈&#10;신용 우수, 60, 🥇"></textarea>
+        <div class="modal-actions" style="width:100%; display:flex; gap:10px; margin-top:10px;">
+          <button class="btn-success btn-large" onclick="submitBulkGrades()">💾 등급 반영하기</button>
+          <button class="btn-danger btn-large" onclick="closeGradesBulkModal()">취소</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- [NEW] 일괄 감점용 커스텀 확인 모달창 -->
+  <div id="bulk-deduct-confirm-modal" class="modal hidden">
+    <div class="modal-overlay" onclick="closeBulkDeductConfirmModal()"></div>
+    <div class="modal-content" style="width: 480px;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #ef4444, #b91c1c);">
+        <h2>⚠️ 일괄 감점 확인</h2>
+        <button class="close-btn" onclick="closeBulkDeductConfirmModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="flex-direction:column; gap:16px; padding:24px; text-align:center;">
+        <span style="font-size: 48px;">📉</span>
+        <h3 id="bulk-deduct-modal-message" style="font-size: 16px; font-weight: bold; color: var(--text-main); line-height: 1.6; margin: 0;">
+          정말로 감점하시겠습니까?
+        </h3>
+        <p style="font-size:13px; color:var(--text-muted); margin: 0;">이 작업은 선택된 과제의 모든 미제출 학생들에게 일괄 감점을 적용하며, 되돌릴 수 없습니다.</p>
+        <div class="modal-actions" style="width:100%; display:flex; gap:10px; margin-top:10px;">
+          <button class="btn-danger btn-large" id="bulk-deduct-confirm-btn" style="flex:1; font-size:15px; padding:12px;">📉 감점 실행하기</button>
+          <button class="btn-secondary btn-large" style="flex:1; font-size:15px; padding:12px;" onclick="closeBulkDeductConfirmModal()">취소</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- [NEW] 발표자 추첨 모달창 -->
+  <div id="picker-modal" class="modal hidden">
+    <div class="modal-overlay" onclick="closePickerModal()"></div>
+    <div class="modal-content" style="width: 450px;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #1e1b4b, #312e81);">
+        <h2>🎲 실시간 발표자 추첨기</h2>
+        <button class="close-btn" onclick="closePickerModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="flex-direction: column; padding: 20px; gap: 14px;">
+        <div style="display: flex; gap: 8px; width: 100%;">
+          <button class="btn-primary" id="btn-pick-all" onclick="startRollPicker('all')" style="flex: 1; padding: 10px; font-size: 14px; background-color: #3b82f6;">👥 전체 학생 대상</button>
+          <button class="btn-success" id="btn-pick-unsubmitted" onclick="startRollPicker('unsubmitted')" style="flex: 1; padding: 10px; font-size: 14px; background-color: #ef4444; border-color: #ef4444;">⚠️ 미제출 학생 대상</button>
+        </div>
+        
+        <!-- 슬롯머신 디스플레이 영역 -->
+        <div class="picker-slots-wrapper">
+          <div class="picker-slots-center-line"></div>
+          <ul id="picker-slots-list" class="picker-slots-list">
+            <li class="picker-slot-card">🎲 추첨 대기</li>
+          </ul>
+        </div>
+        
+        <p style="font-size: 12px; color: var(--text-muted); text-align: center; margin: 0;">버튼을 누르면 애니메이션 and 효과음 후 발표자가 최종 선정됩니다.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- [NEW] 모둠 활동 타이머 모달창 -->
+  <div id="timer-modal" class="modal hidden">
+    <div class="modal-overlay" onclick="closeTimerModal()"></div>
+    <div class="modal-content" style="width: 450px;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #064e3b, #065f46);">
+        <h2>⏱️ 모둠 활동 타이머</h2>
+        <button class="close-btn" onclick="closeTimerModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="flex-direction: column; padding: 25px 20px; gap: 20px; align-items: center;">
+        <!-- 대형 타이머 디스플레이 -->
+        <div id="timer-display" class="timer-modal-display" style="font-size: 72px; font-weight: 900; font-family: 'Outfit', sans-serif; color: #10b981; text-shadow: 0 0 20px rgba(16, 185, 129, 0.4); margin: 10px 0; letter-spacing: 2px;">00:00</div>
+        
+        <!-- 타이머 조작 버튼 (시간 조정) -->
+        <div style="display: flex; gap: 8px; justify-content: center; width: 100%;">
+          <button onclick="adjustTimer(60)" style="flex: 1; padding: 10px; font-size: 14px; font-weight: bold; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-main); cursor: pointer; transition: var(--transition-smooth);">+1분</button>
+          <button onclick="adjustTimer(-60)" style="flex: 1; padding: 10px; font-size: 14px; font-weight: bold; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-main); cursor: pointer; transition: var(--transition-smooth);">-1분</button>
+          <button onclick="adjustTimer(10)" style="flex: 1; padding: 10px; font-size: 14px; font-weight: bold; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-main); cursor: pointer; transition: var(--transition-smooth);">+10초</button>
+          <button onclick="adjustTimer(-10)" style="flex: 1; padding: 10px; font-size: 14px; font-weight: bold; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-main); cursor: pointer; transition: var(--transition-smooth);">-10초</button>
+        </div>
+        
+        <!-- 타이머 시작/정지/리셋 컨트롤 -->
+        <div style="display: flex; gap: 10px; width: 100%; margin-top: 10px;">
+          <button id="btn-timer-start" class="btn-primary" onclick="toggleTimer()" style="flex: 2; padding: 12px; font-size: 16px; font-weight: bold; border-radius: 8px; border: none; background: #10b981; color: white; cursor: pointer; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3); transition: var(--transition-smooth);">▶️ 시작</button>
+          <button onclick="resetTimer()" style="flex: 1; padding: 12px; font-size: 16px; font-weight: bold; border-radius: 8px; border: none; background: #64748b; color: white; cursor: pointer; transition: var(--transition-smooth);">🔄 리셋</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 오색 폭죽용 전역 가상 캔버스 -->
+  <canvas id="confetti-canvas"></canvas>
+
+  <script src="app.js"></script>
+</body>
+</html>
