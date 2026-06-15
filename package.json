@@ -1,0 +1,40 @@
+{
+  "name": "classroom-dashboard",
+  "version": "1.0.0",
+  "description": "Classroom Dashboard Desktop Application",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "keywords": [],
+  "author": "Teacher",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^30.5.1",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.classroom.dashboard",
+    "productName": "ClassroomDashboard",
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": true,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "학급 신용점수 대시보드"
+    },
+    "files": [
+      "index.html",
+      "app.js",
+      "style.css",
+      "main.js",
+      "preload.js",
+      "package.json"
+    ]
+  }
+}

@@ -63,10 +63,29 @@ let pendingRequests = JSON.parse(localStorage.getItem('pendingRequests')) || {};
 let absentLogs = JSON.parse(localStorage.getItem('absentLogs')) || {};
 let processedDeductionDates = JSON.parse(localStorage.getItem('processedDeductionDates')) || [];
 let teacherPasscode = localStorage.getItem('teacherPasscode') || '1234';
-let googleClientId = localStorage.getItem('googleClientId') || '1010660265980-4i9op31aammifr84jp1jnacat975mss3.apps.googleusercontent.com';
+let googleClientId = localStorage.getItem('googleClientId') || '1010660265980-1dj6r5h1f3ls8ln0bmjrf5u3s9qjcekg.apps.googleusercontent.com';
 let googleAccessToken = localStorage.getItem('googleAccessToken') || '';
 let googleDriveFileId = localStorage.getItem('googleDriveFileId') || '';
 let googleUserProfile = JSON.parse(localStorage.getItem('googleUserProfile')) || null;
+let currentSyncMode = localStorage.getItem('currentSyncMode') || 'local';
+const defaultFirebaseConfig = {
+  apiKey: "AIzaSyAF8DShxXRK1O88Bm5I-c9TWT0Z5EvT5k4",
+  projectId: "gen-lang-client-0447859342",
+  authDomain: "gen-lang-client-0447859342.firebaseapp.com",
+  databaseURL: "https://gen-lang-client-0447859342-default-rtdb.firebaseio.com/"
+};
+let firebaseConfig = JSON.parse(localStorage.getItem('firebaseConfig')) || defaultFirebaseConfig;
+if (firebaseConfig) {
+  if (firebaseConfig.apiKey === "AIzaSyAF8DShxXRK1088Bm5I-c9TWT0Z5EvT5k4") {
+    firebaseConfig.apiKey = defaultFirebaseConfig.apiKey;
+  }
+  if (!firebaseConfig.authDomain && firebaseConfig.projectId) {
+    firebaseConfig.authDomain = firebaseConfig.projectId + ".firebaseapp.com";
+  }
+  localStorage.setItem('firebaseConfig', JSON.stringify(firebaseConfig));
+}
+let dbRef = null;
+let firebaseUser = JSON.parse(localStorage.getItem('firebaseUser')) || null;
 let isSyncingFromRemote = false;
 let referrerView = "login";
 let currentDashboardDate = getTodayDateString();
@@ -125,8 +144,10 @@ const saveData = () => {
   localStorage.setItem('processedDeductionDates', JSON.stringify(processedDeductionDates));
   localStorage.setItem('teacherPasscode', String(teacherPasscode));
 
-  // 구글 드라이브 연동 상태이고 동기화 중이 아닐 때 백그라운드 업로드
-  if (googleAccessToken && googleDriveFileId && !isSyncingFromRemote) {
+  if (isSyncingFromRemote) return;
+
+  // 구글 드라이브 동기화 모드
+  if (currentSyncMode === 'gdrive' && googleAccessToken && googleDriveFileId) {
     uploadGoogleDriveBackupFile(googleDriveFileId).catch(err => {
       console.error("[Google Drive] 백그라운드 자동 업로드 실패:", err);
       if (!googleAccessToken) {
@@ -134,120 +155,269 @@ const saveData = () => {
       }
     });
   }
+
+  // 파이어베이스 동기화 모드
+  if (currentSyncMode === 'firebase' && dbRef) {
+    dbRef.set({
+      students,
+      grades,
+      dailyLogs,
+      pointHistory,
+      config,
+      dailyAssignments,
+      pendingRequests,
+      absentLogs,
+      processedDeductionDates,
+      teacherPasscode
+    }).catch(err => {
+      console.error("[Firebase] 백그라운드 자동 업로드 실패:", err);
+    });
+  }
 };
 
 // URL 파라미터 파싱을 통해 구글 클라이언트 ID 자동 주입 (연동 링크 대응)
 const parseUrlParams = () => {
-  const urlParts = window.location.href.split('?');
-  if (urlParts.length > 1) {
-    const searchParams = new URLSearchParams(urlParts[1]);
-    const clientId = searchParams.get('gClientId');
+  let searchStr = window.location.search;
+  
+  if (!searchStr) {
+    const urlParts = window.location.href.split('?');
+    if (urlParts.length > 1) {
+      searchStr = '?' + urlParts[1];
+    }
+  }
+  
+  if (searchStr) {
+    const cleanSearchStr = searchStr.split('#')[0];
+    const searchParams = new URLSearchParams(cleanSearchStr);
     
+    // 구글 클라이언트 ID 파싱
+    const clientId = searchParams.get('gClientId');
     if (clientId) {
       localStorage.setItem('googleClientId', clientId);
       googleClientId = clientId;
+      localStorage.setItem('currentSyncMode', 'gdrive');
+      currentSyncMode = 'gdrive';
       
-      // 주소창에서 매개변수를 깔끔하게 숨김
-      window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+      const cleanHash = window.location.hash.split('?')[0];
+      window.history.replaceState({}, document.title, window.location.pathname + cleanHash);
+      return;
+    }
+
+    // 파이어베이스 설정 파싱
+    const dbUrl = searchParams.get('dbUrl');
+    const apiKey = searchParams.get('apiKey');
+    const projId = searchParams.get('projId');
+    const syncKey = searchParams.get('syncKey');
+    
+    if (dbUrl) {
+      const configObj = {
+        databaseURL: dbUrl,
+        apiKey: apiKey || '',
+        projectId: projId || '',
+        authDomain: projId ? (projId + ".firebaseapp.com") : '',
+        classroomSyncKey: syncKey || ''
+      };
+      localStorage.setItem('firebaseConfig', JSON.stringify(configObj));
+      firebaseConfig = configObj;
+      localStorage.setItem('currentSyncMode', 'firebase');
+      currentSyncMode = 'firebase';
+      
+      const cleanHash = window.location.hash.split('?')[0];
+      window.history.replaceState({}, document.title, window.location.pathname + cleanHash);
     }
   }
 };
 
-// 구글 드라이브 연동 상태 UI 업데이트
+const changeSyncMode = (mode) => {
+  localStorage.setItem('currentSyncMode', mode);
+  currentSyncMode = mode;
+  alert(`동기화 모드가 변경되었습니다: ${mode === 'local' ? '로컬 오프라인' : mode === 'gdrive' ? '구글 드라이브' : '파이어베이스'}\n반영을 위해 페이지를 새로고침합니다.`);
+  location.reload();
+};
+
+// 구글 드라이브 & 파이어베이스 연동 상태 UI 업데이트
 const updateSyncStatusUI = () => {
   const statusBadge = document.getElementById('sync-status-badge');
   const statusText = document.getElementById('sync-status-text');
-  const btnDisconnect = document.getElementById('btn-gdrive-disconnect');
   const btnHeaderSync = document.getElementById('btn-header-sync');
   
-  // 설정 탭 인풋들에 값 채워넣기
+  // 동기화 모드 셀렉터 동기화
+  const modeSelector = document.getElementById('sync-mode-selector');
+  if (modeSelector) {
+    modeSelector.value = currentSyncMode;
+  }
+  
+  // 모드별 설정 카드 노출/비노출 제어
+  const gdriveCard = document.getElementById('gdrive-config-card');
+  const firebaseCard = document.getElementById('firebase-config-card');
+  if (gdriveCard && firebaseCard) {
+    if (currentSyncMode === 'gdrive') {
+      gdriveCard.classList.remove('hidden');
+      firebaseCard.classList.add('hidden');
+    } else if (currentSyncMode === 'firebase') {
+      firebaseCard.classList.remove('hidden');
+      gdriveCard.classList.add('hidden');
+    } else {
+      gdriveCard.classList.add('hidden');
+      firebaseCard.classList.add('hidden');
+    }
+  }
+
+  // 1. 구글 드라이브 카드 값 설정
   const inputClientId = document.getElementById('gdrive-client-id');
   if (inputClientId) {
     inputClientId.value = googleClientId || '';
   }
   
-  if (googleClientId) {
-    if (googleAccessToken) {
-      if (statusBadge) {
-        statusBadge.className = 'sync-status-badge badge-online';
-      }
-      if (statusText) {
-        statusText.innerText = '구글 드라이브 동기화 활성화됨';
-      }
-      if (btnDisconnect) {
-        btnDisconnect.classList.remove('hidden');
-      }
-      if (btnHeaderSync) {
-        btnHeaderSync.style.display = 'inline-flex';
-      }
-    } else {
-      if (statusBadge) {
-        statusBadge.className = 'sync-status-badge badge-offline';
-      }
-      if (statusText) {
-        statusText.innerText = '구글 로그인 대기 중';
-      }
-      if (btnDisconnect) {
-        btnDisconnect.classList.remove('hidden');
-      }
-      if (btnHeaderSync) {
-        btnHeaderSync.style.display = 'none';
-      }
+  const gdriveDisconnectBtn = document.getElementById('btn-gdrive-disconnect');
+  const profileContainer = document.getElementById('google-drive-user-profile');
+  const stateDesc = document.getElementById('google-drive-state-desc');
+
+  // 2. 파이어베이스 카드 값 설정
+  const fbUrlInput = document.getElementById('fb-db-url');
+  const fbApiKeyInput = document.getElementById('fb-api-key');
+  const fbProjIdInput = document.getElementById('fb-project-id');
+  const fbSyncKeyInput = document.getElementById('fb-sync-key');
+  
+  if (firebaseConfig) {
+    const isDefault = (firebaseConfig.databaseURL === defaultFirebaseConfig.databaseURL);
+    if (fbUrlInput) {
+      fbUrlInput.value = isDefault ? '' : (firebaseConfig.databaseURL || '');
+      fbUrlInput.placeholder = isDefault ? '(기본 제공 공유 서버 사용 중)' : 'https://your-project.firebaseio.com';
     }
-  } else {
-    if (statusBadge) {
-      statusBadge.className = 'sync-status-badge badge-offline';
+    if (fbApiKeyInput) {
+      fbApiKeyInput.value = isDefault ? '' : (firebaseConfig.apiKey || '');
+      fbApiKeyInput.placeholder = isDefault ? '(기본 공유 API Key 사용 중)' : 'AIzaSy...';
     }
-    if (statusText) {
-      statusText.innerText = '로컬 모드로 작동 중 (오프라인)';
+    if (fbProjIdInput) {
+      fbProjIdInput.value = isDefault ? '' : (firebaseConfig.projectId || '');
+      fbProjIdInput.placeholder = isDefault ? '(기본 공유 Project ID 사용 중)' : 'my-project';
     }
-    if (btnDisconnect) {
-      btnDisconnect.classList.add('hidden');
-    }
-    if (btnHeaderSync) {
-      btnHeaderSync.style.display = 'none';
+    if (fbSyncKeyInput) {
+      fbSyncKeyInput.value = firebaseConfig.classroomSyncKey || '';
     }
   }
 
-  // 구글 로그인 프로필 UI 제어
-  const profileContainer = document.getElementById('google-drive-user-profile');
-  const stateDesc = document.getElementById('google-drive-state-desc');
-  if (profileContainer) {
-    if (!googleClientId) {
-      profileContainer.innerHTML = `<span style="font-size: 13px; color: var(--text-muted); font-weight: bold;">⚠️ 먼저 구글 Client ID 설정을 완료해 주세요.</span>`;
-      if (stateDesc) {
-        stateDesc.innerText = "구글 드라이브 연동을 위해 발급받은 Google Client ID가 필요합니다.";
-      }
-    } else if (googleAccessToken && googleUserProfile) {
-      const photoURL = googleUserProfile.photoURL || 'https://www.gstatic.com/images/branding/product/2x/avatar_square_blue_120dp.png';
-      profileContainer.innerHTML = `
-        <img src="${photoURL}" class="google-profile-img" alt="Google Profile" style="width:36px; height:36px; border-radius:50%; object-fit:cover;">
-        <div class="google-user-info-text">
-          <span class="google-user-name">${googleUserProfile.displayName || '선생님'}</span>
-          <span class="google-user-email">${googleUserProfile.email || ''}</span>
-        </div>
-        <button onclick="logoutGoogleDrive()" style="padding: 6px 12px; font-size: 12px; font-weight: bold; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-main); cursor: pointer; transition: var(--transition-smooth);">
-          ❌ 로그아웃
-        </button>
-      `;
-      if (stateDesc) {
-        stateDesc.innerText = "구글 계정과 연동되어 구글 드라이브에 백업 파일이 자동으로 동기화됩니다.";
+  const fbDisconnectBtn = document.getElementById('btn-fb-disconnect');
+  const fbProfileContainer = document.getElementById('firebase-user-profile');
+
+  // 모드별 연동 상태 배지 표시 및 헤더/프로필 UI 제어
+  if (currentSyncMode === 'gdrive') {
+    if (googleClientId) {
+      if (googleAccessToken) {
+        if (statusBadge) statusBadge.className = 'sync-status-badge badge-online';
+        if (statusText) statusText.innerText = '구글 드라이브 동기화 활성화됨';
+        if (gdriveDisconnectBtn) gdriveDisconnectBtn.classList.remove('hidden');
+        if (btnHeaderSync) btnHeaderSync.style.display = 'inline-flex';
+        
+        if (profileContainer && googleUserProfile) {
+          const photoURL = googleUserProfile.photoURL || 'https://www.gstatic.com/images/branding/product/2x/avatar_square_blue_120dp.png';
+          profileContainer.innerHTML = `
+            <img src="${photoURL}" class="google-profile-img" alt="Google Profile" style="width:36px; height:36px; border-radius:50%; object-fit:cover;">
+            <div class="google-user-info-text">
+              <span class="google-user-name">${googleUserProfile.displayName || '선생님'}</span>
+              <span class="google-user-email">${googleUserProfile.email || ''}</span>
+            </div>
+            <button onclick="logoutGoogleDrive()" style="padding: 6px 12px; font-size: 12px; font-weight: bold; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-main); cursor: pointer; transition: var(--transition-smooth);">
+              ❌ 로그아웃
+            </button>
+          `;
+        }
+        if (stateDesc) stateDesc.innerText = "구글 계정과 연동되어 구글 드라이브에 백업 파일이 자동으로 동기화됩니다.";
+      } else {
+        if (statusBadge) statusBadge.className = 'sync-status-badge badge-offline';
+        if (statusText) statusText.innerText = '구글 로그인 대기 중';
+        if (gdriveDisconnectBtn) gdriveDisconnectBtn.classList.remove('hidden');
+        if (btnHeaderSync) btnHeaderSync.style.display = 'none';
+        
+        if (profileContainer) {
+          profileContainer.innerHTML = `
+            <button id="btn-gdrive-login" onclick="loginWithGoogleDrive()" style="display: flex; align-items: center; gap: 8px; padding: 8px 16px; border: 1px solid #dadce0; border-radius: 4px; background: white; color: #3c4043; font-size: 14px; font-weight: bold; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.08); transition: var(--transition-smooth);">
+              Google 계정 연동 및 로그인
+            </button>
+          `;
+        }
+        if (stateDesc) stateDesc.innerText = "Google Client ID가 올바릅니다. 구글 계정을 연동해 주세요.";
       }
     } else {
-      profileContainer.innerHTML = `
-        <button id="btn-gdrive-login" onclick="loginWithGoogleDrive()" style="display: flex; align-items: center; gap: 8px; padding: 8px 16px; border: 1px solid #dadce0; border-radius: 4px; background: white; color: #3c4043; font-size: 14px; font-weight: bold; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.08); transition: var(--transition-smooth);">
-          <svg width="18" height="18" viewBox="0 0 18 18">
-            <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
-            <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.683 5.482 18 9 18z" fill="#34A853"/>
-            <path d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.173 0 7.548 0 9s.347 2.827.957 4.039l3.007-2.332z" fill="#FBBC05"/>
-            <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.806 11.426 0 9 0 5.482 0 2.438 2.317.957 5.302l3.007 2.332C4.672 5.164 6.656 3.58 9 3.58z" fill="#EA4335"/>
-          </svg>
-          Google 계정 연동 및 로그인
-        </button>
-      `;
-      if (stateDesc) {
-        stateDesc.innerText = "Google Client ID가 올바릅니다. 구글 계정을 연동해 주세요.";
+      if (statusBadge) statusBadge.className = 'sync-status-badge badge-offline';
+      if (statusText) statusText.innerText = '구글 설정 미완료';
+      if (gdriveDisconnectBtn) gdriveDisconnectBtn.classList.add('hidden');
+      if (btnHeaderSync) btnHeaderSync.style.display = 'none';
+      if (profileContainer) {
+        profileContainer.innerHTML = `<span style="font-size: 13px; color: var(--text-muted); font-weight: bold;">⚠️ 먼저 구글 Client ID 설정을 완료해 주세요.</span>`;
       }
+      if (stateDesc) stateDesc.innerText = "구글 드라이브 연동을 위해 발급받은 Google Client ID가 필요합니다.";
+    }
+  } else if (currentSyncMode === 'firebase') {
+    if (firebaseConfig && firebaseConfig.databaseURL) {
+      if (dbRef) {
+        if (statusBadge) statusBadge.className = 'sync-status-badge badge-online';
+        if (statusText) {
+          const syncKeyDisplay = firebaseConfig.classroomSyncKey || '설정 미완료';
+          statusText.innerText = `파이어베이스 실시간 동기화 중 (연동 키: ${syncKeyDisplay})`;
+        }
+        if (fbDisconnectBtn) fbDisconnectBtn.classList.remove('hidden');
+        if (btnHeaderSync) btnHeaderSync.style.display = 'none';
+        
+        if (fbProfileContainer && firebaseUser) {
+          const photoURL = firebaseUser.photoURL || 'https://www.gstatic.com/images/branding/product/2x/avatar_square_blue_120dp.png';
+          fbProfileContainer.innerHTML = `
+            <img src="${photoURL}" class="google-profile-img" alt="Google Profile" style="width:36px; height:36px; border-radius:50%; object-fit:cover;">
+            <div class="google-user-info-text">
+              <span class="google-user-name">${firebaseUser.displayName || '선생님'}</span>
+              <span class="google-user-email">${firebaseUser.email || ''}</span>
+            </div>
+            <button onclick="logoutFirebaseGoogle()" style="padding: 6px 12px; font-size: 12px; font-weight: bold; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-main); cursor: pointer; transition: var(--transition-smooth);">
+              ❌ 로그아웃
+            </button>
+          `;
+        }
+      } else {
+        if (statusBadge) statusBadge.className = 'sync-status-badge badge-offline';
+        if (statusText) statusText.innerText = '파이어베이스 연결 대기 중...';
+        if (fbDisconnectBtn) fbDisconnectBtn.classList.remove('hidden');
+        if (btnHeaderSync) btnHeaderSync.style.display = 'none';
+        
+        if (fbProfileContainer) {
+          fbProfileContainer.innerHTML = `
+            <button id="btn-fb-google-login" onclick="loginWithFirebaseGoogle()" style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid #dadce0; border-radius: 4px; background: white; color: #3c4043; font-size: 13px; font-weight: bold; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+              구글 계정으로 연동하기
+            </button>
+          `;
+        }
+      }
+    } else {
+      if (statusBadge) statusBadge.className = 'sync-status-badge badge-offline';
+      if (statusText) statusText.innerText = '파이어베이스 설정 미완료';
+      if (fbDisconnectBtn) fbDisconnectBtn.classList.add('hidden');
+      if (btnHeaderSync) btnHeaderSync.style.display = 'none';
+      if (fbProfileContainer) {
+        fbProfileContainer.innerHTML = `<span style="font-size: 13px; color: var(--text-muted); font-weight: bold;">⚠️ 먼저 파이어베이스 설정을 저장해 주세요.</span>`;
+      }
+    }
+  } else {
+    // 로컬 전용 모드
+    if (statusBadge) statusBadge.className = 'sync-status-badge badge-offline';
+    if (statusText) statusText.innerText = '로컬 모드로 작동 중 (오프라인)';
+    if (btnHeaderSync) btnHeaderSync.style.display = 'none';
+  }
+
+  // 교사 헤더 프로필 뱃지 및 로그아웃 버튼 제어
+  const teacherProfileBadge = document.getElementById('teacher-profile-badge');
+  const teacherProfileName = document.getElementById('teacher-profile-name');
+  if (teacherProfileBadge && teacherProfileName) {
+    if (isTeacherAuthenticated()) {
+      teacherProfileBadge.style.display = 'inline-flex';
+      if (currentSyncMode === 'firebase' && firebaseUser) {
+        teacherProfileName.innerText = `${firebaseUser.displayName || '교사'} 선생님`;
+      } else if (googleUserProfile) {
+        teacherProfileName.innerText = `${googleUserProfile.displayName || '교사'} 선생님`;
+      } else {
+        teacherProfileName.innerText = '교사 (로컬)';
+      }
+    } else {
+      teacherProfileBadge.style.display = 'none';
     }
   }
 };
@@ -314,6 +484,187 @@ const applyRemoteData = (data) => {
   }
 };
 
+// ==========================================================================
+// Firebase 실시간 동기화 연동 로직
+// ==========================================================================
+
+const initFirebaseSync = () => {
+  if (currentSyncMode !== 'firebase') return;
+  if (!firebaseConfig || !firebaseConfig.databaseURL) {
+    updateSyncStatusUI();
+    return;
+  }
+  try {
+    let app;
+    if (firebase.apps.length === 0) {
+      app = firebase.initializeApp(firebaseConfig);
+    } else {
+      app = firebase.app();
+    }
+    
+    const syncKey = firebaseConfig.classroomSyncKey;
+    if (!syncKey) {
+      updateSyncStatusUI();
+      return;
+    }
+    
+    dbRef = firebase.database().ref('classrooms/' + syncKey);
+    dbRef.on('value', (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        applyRemoteData(data);
+      }
+    });
+    
+    // Auth 상태 리스너
+    firebase.auth().onAuthStateChanged((user) => {
+      if (user) {
+        firebaseUser = {
+          uid: user.uid,
+          displayName: user.displayName,
+          email: user.email,
+          photoURL: user.photoURL
+        };
+        localStorage.setItem('firebaseUser', JSON.stringify(firebaseUser));
+      } else {
+        firebaseUser = null;
+        localStorage.removeItem('firebaseUser');
+      }
+      updateSyncStatusUI();
+    });
+  } catch (err) {
+    console.error("[Firebase] 초기화 오류:", err);
+  }
+};
+
+const toggleFbAdvancedFields = () => {
+  const fields = document.getElementById('fb-advanced-config-fields');
+  if (fields) {
+    fields.classList.toggle('hidden');
+    const toggleBtn = document.getElementById('btn-fb-advanced-toggle');
+    if (toggleBtn) {
+      const isHidden = fields.classList.contains('hidden');
+      toggleBtn.innerText = isHidden 
+        ? "🛠️ 개인 파이어베이스 서버 정보 설정 (고급 설정)" 
+        : "🛠️ 개인 파이어베이스 서버 정보 설정 닫기";
+    }
+  }
+};
+
+const saveFirebaseConfig = () => {
+  const dbUrl = document.getElementById('fb-db-url').value.trim();
+  const apiKey = document.getElementById('fb-api-key').value.trim();
+  const projId = document.getElementById('fb-project-id').value.trim();
+  const syncKey = document.getElementById('fb-sync-key').value.trim();
+  
+  let configObj = null;
+  
+  // 고급설정 입력폼이 비어있거나 플레이스홀더 상태(기본 서버 이용)인 경우 default config 복사해 활용
+  if (!dbUrl && !apiKey && !projId) {
+    configObj = {
+      databaseURL: defaultFirebaseConfig.databaseURL,
+      apiKey: defaultFirebaseConfig.apiKey,
+      projectId: defaultFirebaseConfig.projectId,
+      authDomain: defaultFirebaseConfig.authDomain,
+      classroomSyncKey: syncKey
+    };
+  } else {
+    if (!dbUrl) {
+      alert("❌ Database URL을 입력해 주세요.");
+      return;
+    }
+    configObj = {
+      databaseURL: dbUrl,
+      apiKey: apiKey,
+      projectId: projId,
+      authDomain: projId ? (projId + ".firebaseapp.com") : '',
+      classroomSyncKey: syncKey
+    };
+  }
+  
+  localStorage.setItem('firebaseConfig', JSON.stringify(configObj));
+  firebaseConfig = configObj;
+  localStorage.setItem('currentSyncMode', 'firebase');
+  currentSyncMode = 'firebase';
+  
+  alert("💾 파이어베이스 설정이 저장되었습니다. 연동을 위해 새로고침합니다.");
+  location.reload();
+};
+
+const disconnectFirebase = () => {
+  const proceed = confirm("⚠️ 정말 파이어베이스 연동을 해제하고 로컬 단독 모드로 전환하시겠습니까? (이후 데이터는 현재 브라우저에만 저장됩니다.)");
+  if (!proceed) return;
+  
+  if (firebase.apps.length > 0) {
+    firebase.auth().signOut().catch(err => console.error(err));
+  }
+  
+  sessionStorage.removeItem('teacher_authenticated');
+  localStorage.removeItem('firebaseConfig');
+  localStorage.removeItem('firebaseUser');
+  localStorage.setItem('currentSyncMode', 'local');
+  firebaseConfig = null;
+  firebaseUser = null;
+  currentSyncMode = 'local';
+  alert("❌ 파이어베이스 연동이 해제되고 로컬 모드로 전환되었습니다.");
+  location.reload();
+};
+
+const loginWithFirebaseGoogle = () => {
+  if (!firebaseConfig || !firebaseConfig.apiKey || !firebaseConfig.databaseURL || !firebaseConfig.projectId) {
+    alert("❌ 먼저 파이어베이스 데이터베이스 정보(URL, API Key, Project ID)를 저장해 주세요.");
+    return;
+  }
+  
+  try {
+    if (firebase.apps.length === 0) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    const provider = new firebase.auth.GoogleAuthProvider();
+    firebase.auth().signInWithPopup(provider).then((result) => {
+      const user = result.user;
+      firebaseUser = {
+        uid: user.uid,
+        displayName: user.displayName,
+        email: user.email,
+        photoURL: user.photoURL
+      };
+      localStorage.setItem('firebaseUser', JSON.stringify(firebaseUser));
+      
+      // 구글 로그인 성공 시 계정 고유 ID를 연동 키로 자동 할당
+      firebaseConfig.classroomSyncKey = user.uid;
+      localStorage.setItem('firebaseConfig', JSON.stringify(firebaseConfig));
+      
+      alert("🎉 구글 계정으로 연동에 성공했습니다!\n학급 연동 키(Classroom Key)가 귀하의 구글 계정 고유 ID로 설정되었습니다.");
+      location.reload();
+    }).catch((error) => {
+      console.error("[Firebase] 구글 로그인 오류:", error);
+      alert("❌ 로그인 실패: " + error.message);
+    });
+  } catch (err) {
+    console.error(err);
+    alert("❌ 파이어베이스 구글 연동 오류: " + err.message);
+  }
+};
+
+const logoutFirebaseGoogle = () => {
+  sessionStorage.removeItem('teacher_authenticated');
+  if (firebase.apps.length > 0) {
+    firebase.auth().signOut().then(() => {
+      firebaseUser = null;
+      localStorage.removeItem('firebaseUser');
+      alert("로그아웃 되었습니다.");
+      location.reload();
+    }).catch(err => {
+      console.error(err);
+    });
+  } else {
+    firebaseUser = null;
+    localStorage.removeItem('firebaseUser');
+    location.reload();
+  }
+};
+
 let tokenClient;
 
 // Google Identity Services (GIS) 및 Google Drive API 초기화
@@ -351,13 +702,21 @@ const initGoogleDriveSync = () => {
 const handleAfterLogin = async () => {
   try {
     await fetchUserProfile();
-    await syncWithGoogleDrive();
-    alert("🎉 구글 드라이브 연동 및 동기화가 완료되었습니다!");
+    if (currentSyncMode === 'gdrive') {
+      await syncWithGoogleDrive();
+      alert("🎉 구글 드라이브 연동 및 동기화가 완료되었습니다!");
+    } else {
+      // local 모드일 때
+      sessionStorage.setItem('teacher_authenticated', 'true');
+      alert(`🎉 안녕하세요, ${googleUserProfile ? googleUserProfile.displayName : ''} 선생님!\n로컬 모드로 교사 대시보드에 로그인되었습니다.`);
+    }
   } catch (err) {
     console.error(err);
-    alert("❌ 구글 드라이브 동기화 실패: " + err.message);
+    alert("❌ 구글 로그인 실패: " + err.message);
   } finally {
     updateSyncStatusUI();
+    window.location.hash = "#teacher";
+    location.reload();
   }
 };
 
@@ -557,6 +916,7 @@ const logoutGoogleDrive = () => {
   const proceed = confirm("⚠️ 정말 로그아웃하시겠습니까? (로그아웃 시 구글 드라이브 동기화가 중단되며 로컬 저장소 데이터만 유지됩니다.)");
   if (!proceed) return;
   
+  sessionStorage.removeItem('teacher_authenticated');
   clearGoogleTokens();
   alert("ℹ️ 구글 계정 로그아웃이 완료되었습니다.");
   location.reload();
@@ -590,12 +950,20 @@ const disconnectGoogleDrive = () => {
 };
 
 const copyTeacherDashboardLink = () => {
-  let url = window.location.origin + window.location.pathname + "#teacher";
-  if (googleClientId) {
-    const params = new URLSearchParams();
-    params.set('gClientId', googleClientId);
-    url += "?" + params.toString();
+  let queryStr = "";
+  if (currentSyncMode === 'gdrive' && googleClientId) {
+    queryStr = "?gClientId=" + encodeURIComponent(googleClientId);
+  } else if (currentSyncMode === 'firebase' && firebaseConfig && firebaseConfig.databaseURL) {
+    const params = new URLSearchParams({
+      dbUrl: firebaseConfig.databaseURL,
+      apiKey: firebaseConfig.apiKey || '',
+      projId: firebaseConfig.projectId || '',
+      syncKey: firebaseConfig.classroomSyncKey || ''
+    });
+    queryStr = "?" + params.toString();
   }
+  
+  const url = window.location.origin + window.location.pathname + queryStr + "#teacher";
   
   const textarea = document.createElement('textarea');
   textarea.value = url;
@@ -605,7 +973,7 @@ const copyTeacherDashboardLink = () => {
   try {
     const successful = document.execCommand('copy');
     if (successful) {
-      alert("📋 구글 클라이언트 ID가 포함된 교사용 대시보드 주소가 클립보드에 복사되었습니다.\n\n다른 브라우저나 기기(태블릿 등)의 주소창에 이 링크를 붙여넣기 하시면 설정이 한 번에 자동 연동됩니다!");
+      alert("📋 설정 정보가 포함된 교사용 대시보드 주소가 클립보드에 복사되었습니다.\n\n다른 브라우저나 기기(태블릿 등)의 주소창에 이 링크를 붙여넣기 하시면 설정이 한 번에 자동 연동됩니다!");
     } else {
       alert("❌ 복사 실패. 주소창의 링크를 수동으로 복사해 주세요.");
     }
@@ -2013,34 +2381,67 @@ const toggleTaskInTableDynamic = (studentId, taskId, points, taskName, isChecked
 
 // 7-1. 학생 수동 점수 수정 화면 렌더링
 const renderRosterPointsManager = () => {
+  populateRosterGradeFilter();
+  
   const tableBody = document.getElementById('roster-points-table-body');
+  if (!tableBody) return;
   tableBody.innerHTML = '';
+
+  // 전체 선택 체크박스 초기화
+  const selectAllCheckbox = document.getElementById('roster-select-all');
+  if (selectAllCheckbox) {
+    selectAllCheckbox.checked = false;
+    selectAllCheckbox.indeterminate = false;
+  }
 
   // 학번 기준 정렬 (글로벌 배열 순서를 변경하지 않도록 얕은 복사 후 정렬)
   const sortedStudents = [...students].sort((a, b) => a.student_id.localeCompare(b.student_id));
 
   sortedStudents.forEach(student => {
+    const grade = evaluateGrade(student.total_points);
     const tr = document.createElement('tr');
+    tr.dataset.studentId = student.student_id;
+    tr.dataset.studentName = student.name;
+    tr.dataset.gradeMinPoints = grade.min_points;
+
+    // 등급 아이콘 이미지 여부
+    let gradeIconHtml = "";
+    if (grade.icon) {
+      gradeIconHtml = `<img src="${grade.icon}" alt="${grade.name}" style="width:20px; height:20px; border-radius:4px; vertical-align:middle; margin-right:4px;">`;
+    }
+    const gradeText = `${grade.emoji || '🌱'} ${grade.name}`;
+
     tr.innerHTML = `
+      <td>
+        <input type="checkbox" class="roster-select-student" data-student-id="${student.student_id}" onchange="updateRosterSelectAllState()" style="width: 16px; height: 16px; cursor: pointer;">
+      </td>
       <td>${student.student_id}</td>
-      <td style="font-weight:bold;">${student.name}</td>
-      <td style="color:var(--primary-color); font-weight:bold;">${student.total_points}점</td>
+      <td style="font-weight:bold; color:var(--text-main);">${student.name}</td>
+      <td>
+        <span class="grade-badge-roster" style="font-size:12px; font-weight:bold; padding:4px 8px; border-radius:12px; background:rgba(99, 102, 241, 0.08); color:#4f46e5; border:1px solid rgba(99, 102, 241, 0.15); display:inline-flex; align-items:center;">
+          ${gradeIconHtml}${gradeText}
+        </span>
+      </td>
+      <td style="color:#4f46e5; font-weight:bold; font-size:15px;">${student.total_points}점</td>
       <td>
         <div style="display:flex; justify-content:center; align-items:center; gap:6px;">
-          <button class="btn-danger" style="padding: 4px 12px; font-size: 14px; font-weight: bold; border-radius: var(--radius-sm);" onclick="adjustPointsInline('${student.student_id}', -1)">-1</button>
-          <input type="number" class="roster-point-edit-input" data-student-id="${student.student_id}" value="${student.total_points}" style="width:80px; text-align:center; margin: 0;">
-          <button class="btn-success" style="padding: 4px 12px; font-size: 14px; font-weight: bold; border-radius: var(--radius-sm);" onclick="adjustPointsInline('${student.student_id}', 1)">+1</button>
+          <button class="btn-danger" style="padding: 4px 10px; font-size: 13px; font-weight: bold; border-radius: var(--radius-sm);" onclick="adjustPointsInline('${student.student_id}', -1)">-1</button>
+          <input type="number" class="roster-point-edit-input" data-student-id="${student.student_id}" value="${student.total_points}" style="width:70px; text-align:center; margin: 0; padding:6px; font-size:13px;">
+          <button class="btn-success" style="padding: 4px 10px; font-size: 13px; font-weight: bold; border-radius: var(--radius-sm);" onclick="adjustPointsInline('${student.student_id}', 1)">+1</button>
         </div>
       </td>
       <td>
-        <input type="text" class="roster-point-reason-input" data-student-id="${student.student_id}" placeholder="(선택 사항) 예: 발표 우수, 준비물 미참가 등" style="text-align:left;">
+        <input type="text" class="roster-point-reason-input" data-student-id="${student.student_id}" placeholder="(선택 사항) 예: 발표 우수, 준비물 미지참 등" style="text-align:left; font-size:13px; padding:6px 10px; width:100%;">
       </td>
       <td>
-        <button class="btn-primary" style="padding: 6px 12px; font-size:13px; font-weight:bold; border-radius:var(--radius-sm);" onclick="viewStudentPortalFromTeacher('${student.student_id}')">🔍 조회</button>
+        <button class="btn-primary" style="padding: 6px 12px; font-size:13px; font-weight:bold; border-radius:var(--radius-sm); background-color:#2563eb; border-color:#2563eb;" onclick="viewStudentPortalFromTeacher('${student.student_id}')">🔍 조회</button>
       </td>
     `;
     tableBody.appendChild(tr);
   });
+  
+  // 검색 및 필터 상태 반영
+  filterRosterList();
 };
 
 // 7-1-A. 수동 점수 1점단위 즉시 가감 버튼 헬퍼
@@ -2049,6 +2450,11 @@ const adjustPointsInline = (studentId, amount) => {
   if (input) {
     const val = parseInt(input.value) || 0;
     input.value = Math.max(0, val + amount);
+    
+    // 임시 하이라이트 플래시 효과
+    input.style.backgroundColor = amount > 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+    setTimeout(() => { input.style.backgroundColor = ''; }, 1000);
+    
     playAudioEffect(amount > 0 ? 'coin' : 'buzz');
   }
 };
@@ -2059,15 +2465,149 @@ const viewStudentPortalFromTeacher = (studentId) => {
   window.location.hash = `student/${studentId}`;
 };
 
+// 7-1-C. 등급 필터 옵션 동적 채우기
+const populateRosterGradeFilter = () => {
+  const filterSelect = document.getElementById('roster-grade-filter');
+  if (!filterSelect) return;
+  
+  // 첫 번째 '전체 등급 보기' 옵션은 남기고 초기화
+  filterSelect.innerHTML = '<option value="all">전체 등급 보기</option>';
+  
+  // 등급 기준 점수 오름차순 정렬 후 추가
+  const sorted = [...grades].sort((a, b) => a.min_points - b.min_points);
+  sorted.forEach(g => {
+    const opt = document.createElement('option');
+    opt.value = g.min_points;
+    opt.innerText = `${g.emoji || '⭐'} ${g.name} (${g.min_points}점 이상)`;
+    filterSelect.appendChild(opt);
+  });
+};
+
+// 7-1-D. 체크박스 전체 선택/해제
+const toggleRosterSelectAll = (checked) => {
+  const rows = document.querySelectorAll('#roster-points-table-body tr');
+  rows.forEach(row => {
+    if (row.style.display !== 'none') {
+      const cb = row.querySelector('.roster-select-student');
+      if (cb) cb.checked = checked;
+    }
+  });
+};
+
+// 7-1-E. 개별 체크박스 변경 시 전체 선택 상태 동기화 (Indeterminate 대응)
+const updateRosterSelectAllState = () => {
+  const selectAll = document.getElementById('roster-select-all');
+  if (!selectAll) return;
+  
+  const visibleCbs = Array.from(document.querySelectorAll('#roster-points-table-body tr'))
+    .filter(row => row.style.display !== 'none')
+    .map(row => row.querySelector('.roster-select-student'))
+    .filter(Boolean);
+    
+  if (visibleCbs.length === 0) {
+    selectAll.checked = false;
+    selectAll.indeterminate = false;
+    return;
+  }
+  
+  const allChecked = visibleCbs.every(cb => cb.checked);
+  const noneChecked = visibleCbs.every(cb => !cb.checked);
+  
+  if (allChecked) {
+    selectAll.checked = true;
+    selectAll.indeterminate = false;
+  } else if (noneChecked) {
+    selectAll.checked = false;
+    selectAll.indeterminate = false;
+  } else {
+    selectAll.checked = false;
+    selectAll.indeterminate = true;
+  }
+};
+
+// 7-1-F. 검색 및 등급 필터 적용
+const filterRosterList = () => {
+  const searchInput = document.getElementById('roster-search-input');
+  const gradeFilter = document.getElementById('roster-grade-filter');
+  
+  const query = searchInput ? searchInput.value.trim().toLowerCase() : "";
+  const filterVal = gradeFilter ? gradeFilter.value : "all";
+  
+  const rows = document.querySelectorAll('#roster-points-table-body tr');
+  rows.forEach(row => {
+    const studentId = row.dataset.studentId || "";
+    const name = row.dataset.studentName ? row.dataset.studentName.toLowerCase() : "";
+    const gradeMinPoints = parseInt(row.dataset.gradeMinPoints) || 0;
+    
+    const matchesSearch = studentId.includes(query) || name.includes(query);
+    const matchesGrade = (filterVal === "all") || (parseInt(filterVal) === gradeMinPoints);
+    
+    if (matchesSearch && matchesGrade) {
+      row.style.display = '';
+    } else {
+      row.style.display = 'none';
+      // 숨겨진 행의 체크박스는 선택 해제 처리하여 일괄 작업 실수 방지
+      const cb = row.querySelector('.roster-select-student');
+      if (cb) cb.checked = false;
+    }
+  });
+  
+  // 전체선택 상태 갱신
+  updateRosterSelectAllState();
+};
+
+// 7-1-G. 추천 템플릿 설정 및 점수 부여
+const setBatchTemplate = (reason, points) => {
+  const reasonInput = document.getElementById('batch-reason-input');
+  if (reasonInput) {
+    reasonInput.value = reason;
+  }
+  applyBatchPoints(points);
+};
+
+// 7-1-H. 선택된 학생들에게 일괄 점수/사유 가감 적용
+const applyBatchPoints = (delta) => {
+  const checkboxes = document.querySelectorAll('.roster-select-student:checked');
+  if (checkboxes.length === 0) {
+    alert("❌ 점수를 가감할 학생을 먼저 선택해 주세요 (체크박스 선택).");
+    return;
+  }
+  
+  const batchReasonInput = document.getElementById('batch-reason-input');
+  const reasonText = batchReasonInput ? batchReasonInput.value.trim() : "";
+  
+  checkboxes.forEach(cb => {
+    const studentId = cb.dataset.studentId;
+    const input = document.querySelector(`.roster-point-edit-input[data-student-id="${studentId}"]`);
+    const reasonInput = document.querySelector(`.roster-point-reason-input[data-student-id="${studentId}"]`);
+    
+    if (input) {
+      const val = parseInt(input.value) || 0;
+      input.value = Math.max(0, val + delta);
+      
+      // 하이라이트 플래시 효과
+      input.style.backgroundColor = delta > 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+      setTimeout(() => { input.style.backgroundColor = ''; }, 1000);
+    }
+    
+    if (reasonInput && reasonText) {
+      reasonInput.value = reasonText;
+      reasonInput.style.backgroundColor = 'rgba(99, 102, 241, 0.1)';
+      setTimeout(() => { reasonInput.style.backgroundColor = ''; }, 1000);
+    }
+  });
+  
+  playAudioEffect(delta > 0 ? 'coin' : 'buzz');
+};
+
 // 7-2. 수동 점수 일괄 저장 처리
 const saveRosterPoints = () => {
   const editInputs = document.querySelectorAll('.roster-point-edit-input');
-  const reasonInputs = document.querySelectorAll('.roster-point-reason-input');
   
   let changedCount = 0;
   const nowStr = new Date().toISOString();
 
-  editInputs.forEach((input, index) => {
+  editInputs.forEach((input) => {
     const studentId = input.dataset.studentId;
     const newPoints = parseInt(input.value);
     
@@ -2082,7 +2622,8 @@ const saveRosterPoints = () => {
         const delta = newPoints - oldPoints;
         student.total_points = newPoints;
         
-        const reasonInput = reasonInputs[index];
+        // 학번에 매칭되는 사유 값 가져오기 (DOM 인덱스 독립적 매칭)
+        const reasonInput = document.querySelector(`.roster-point-reason-input[data-student-id="${studentId}"]`);
         const reason = (reasonInput && reasonInput.value.trim()) 
           ? reasonInput.value.trim() 
           : "수동 수정";
@@ -3161,56 +3702,64 @@ const router = () => {
   const teacherView = document.getElementById('teacher-view');
   const studentView = document.getElementById('student-view');
   const studentLoginView = document.getElementById('student-login-view');
+  const teacherLoginView = document.getElementById('teacher-login-view');
+  const landingView = document.getElementById('landing-view');
 
   if (hash.startsWith("#student/")) {
     const studentId = hash.split("/")[1];
     
     teacherView.classList.add('hidden');
-    studentLoginView.classList.add('hidden');
+    if (studentLoginView) studentLoginView.classList.add('hidden');
+    if (teacherLoginView) teacherLoginView.classList.add('hidden');
+    if (landingView) landingView.classList.add('hidden');
     studentView.classList.remove('hidden');
     
     renderStudentPortal(studentId);
-  } else if (hash === "#student-login") {
-    teacherView.classList.add('hidden');
-    studentView.classList.add('hidden');
-    studentLoginView.classList.remove('hidden');
-    
-    // 로그인 폼 입력 및 에러 메시지 초기화
-    document.getElementById('login-student-id').value = "";
-    document.getElementById('login-student-name').value = "";
-    document.getElementById('login-error-msg').classList.add('hidden');
   } else if (hash === "#teacher") {
-    if (sessionStorage.getItem('teacher_authenticated') === 'true') {
+    if (isTeacherAuthenticated()) {
       studentView.classList.add('hidden');
-      studentLoginView.classList.add('hidden');
+      if (studentLoginView) studentLoginView.classList.add('hidden');
+      if (teacherLoginView) teacherLoginView.classList.add('hidden');
+      if (landingView) landingView.classList.add('hidden');
       teacherView.classList.remove('hidden');
       switchTab('dashboard');
     } else {
-      const entered = prompt("🔒 교사용 관리자 비밀번호를 입력해 주세요:");
-      if (entered === teacherPasscode) {
-        sessionStorage.setItem('teacher_authenticated', 'true');
-        studentView.classList.add('hidden');
-        studentLoginView.classList.add('hidden');
-        teacherView.classList.remove('hidden');
-        switchTab('dashboard');
-      } else {
-        if (entered !== null) {
-          alert("❌ 비밀번호가 올바르지 않습니다.");
-        }
-        window.location.hash = "#student-login";
-      }
+      // 인증되지 않은 경우 통합 랜딩 뷰로 리다이렉트하여 교사 로그인이 보이게 함
+      window.location.hash = "#landing";
     }
   } else {
-    // 기본적으로 학생 로그인 포털로 리다이렉트하여 학생의 교사 대시보드 접근 방지
-    window.location.hash = "#student-login";
+    // 디폴트 메인화면: 통합 랜딩 뷰 (#landing)
+    // 교사가 이미 로그인한 상태라면 대시보드로 자동 리다이렉트
+    if (isTeacherAuthenticated()) {
+      window.location.hash = "#teacher";
+      return;
+    }
+    
+    teacherView.classList.add('hidden');
+    studentView.classList.add('hidden');
+    if (studentLoginView) studentLoginView.classList.add('hidden');
+    if (teacherLoginView) teacherLoginView.classList.add('hidden');
+    if (landingView) landingView.classList.remove('hidden');
+    
+    // 로그인 인풋 및 에러 메시지 초기화
+    const landingStudentIdEl = document.getElementById('landing-student-id');
+    const landingStudentNameEl = document.getElementById('landing-student-name');
+    const landingLoginErrorEl = document.getElementById('landing-login-error');
+    if (landingStudentIdEl) landingStudentIdEl.value = "";
+    if (landingStudentNameEl) landingStudentNameEl.value = "";
+    if (landingLoginErrorEl) landingLoginErrorEl.classList.add('hidden');
   }
 };
 
-// 12-1. 학생 조회용 포털 로그인 로직
+// 12-1. 학생 조회용 포털 로그인 로직 (통합 랜딩 및 레거시 지원)
 const submitStudentLogin = () => {
-  const idInput = document.getElementById('login-student-id').value.trim();
-  const nameInput = document.getElementById('login-student-name').value.trim();
-  const errorMsg = document.getElementById('login-error-msg');
+  const idInputEl = document.getElementById('landing-student-id') || document.getElementById('login-student-id');
+  const nameInputEl = document.getElementById('landing-student-name') || document.getElementById('login-student-name');
+  const errorMsg = document.getElementById('landing-login-error') || document.getElementById('login-error-msg');
+  
+  if (!idInputEl || !nameInputEl) return;
+  const idInput = idInputEl.value.trim();
+  const nameInput = nameInputEl.value.trim();
   
   let formattedId = idInput;
   // 번호 한 자리 입력 자동 보정 (예: 5 -> 05)
@@ -3221,10 +3770,10 @@ const submitStudentLogin = () => {
   const matchedStudent = students.find(s => s.student_id === formattedId && s.name === nameInput);
   
   if (matchedStudent) {
-    errorMsg.classList.add('hidden');
+    if (errorMsg) errorMsg.classList.add('hidden');
     window.location.hash = `student/${matchedStudent.student_id}`;
   } else {
-    errorMsg.classList.remove('hidden');
+    if (errorMsg) errorMsg.classList.remove('hidden');
   }
 };
 
@@ -3233,12 +3782,23 @@ const goBackToStudentPortalLogin = () => {
     window.location.hash = "#teacher"; // 교사용 관리판으로 복귀
     setTimeout(() => switchTab('roster'), 50); // 점수 관리 탭 강제 활성화
   } else {
-    window.location.hash = "student-login";
+    window.location.hash = "landing";
   }
 };
 
 const copyStudentPortalLink = () => {
-  const fullPortalUrl = window.location.origin + window.location.pathname + "#student-login";
+  let queryStr = "";
+  if (currentSyncMode === 'firebase' && firebaseConfig && firebaseConfig.databaseURL) {
+    const params = new URLSearchParams({
+      dbUrl: firebaseConfig.databaseURL,
+      apiKey: firebaseConfig.apiKey || '',
+      projId: firebaseConfig.projectId || '',
+      syncKey: firebaseConfig.classroomSyncKey || ''
+    });
+    queryStr = "?" + params.toString();
+  }
+  
+  const fullPortalUrl = window.location.origin + window.location.pathname + queryStr + "#landing";
   
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(fullPortalUrl)
@@ -3296,20 +3856,72 @@ const saveTeacherPasscode = () => {
   alert("🔒 교사용 비밀번호가 성공적으로 변경되었습니다!");
 };
 
+const isTeacherAuthenticated = () => {
+  if (currentSyncMode === 'gdrive') {
+    return !!googleAccessToken;
+  } else if (currentSyncMode === 'firebase') {
+    return !!firebaseUser;
+  }
+  return sessionStorage.getItem('teacher_authenticated') === 'true';
+};
+
+const loginAsTeacher = () => {
+  if (currentSyncMode === 'local') {
+    if (!tokenClient) {
+      initGoogleDriveSync();
+    }
+    if (tokenClient) {
+      tokenClient.requestAccessToken();
+      sessionStorage.setItem('teacher_authenticated', 'true');
+    } else {
+      // Fallback: GIS 라이브러리가 없거나 설정 오류 발생 시 로컬 전용 진입 허용
+      sessionStorage.setItem('teacher_authenticated', 'true');
+      alert("🎉 로컬 개발 모드로 로그인되었습니다. (구글 로그인 생략)");
+      window.location.hash = "#teacher";
+      location.reload();
+    }
+  } else if (currentSyncMode === 'firebase') {
+    if (firebase.apps.length === 0) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    const provider = new firebase.auth.GoogleAuthProvider();
+    firebase.auth().signInWithPopup(provider).then((result) => {
+      const user = result.user;
+      firebaseUser = {
+        uid: user.uid,
+        displayName: user.displayName,
+        email: user.email,
+        photoURL: user.photoURL
+      };
+      localStorage.setItem('firebaseUser', JSON.stringify(firebaseUser));
+      sessionStorage.setItem('teacher_authenticated', 'true');
+      
+      // 자동 연동: 구글 계정 ID(UID)를 이 선생님의 학급 연동 키로 자동 할당
+      firebaseConfig.classroomSyncKey = user.uid;
+      localStorage.setItem('firebaseConfig', JSON.stringify(firebaseConfig));
+      
+      alert(`🎉 안녕하세요, ${user.displayName} 선생님!\n선생님의 학급 관리 대시보드로 로그인되었습니다.`);
+      window.location.hash = "#teacher";
+      location.reload();
+    }).catch((error) => {
+      console.error("[Firebase] 교사 로그인 실패:", error);
+      alert("❌ 로그인 실패: " + error.message);
+    });
+  } else if (currentSyncMode === 'gdrive') {
+    if (!tokenClient) {
+      initGoogleDriveSync();
+    }
+    if (tokenClient) {
+      tokenClient.requestAccessToken();
+      sessionStorage.setItem('teacher_authenticated', 'true');
+    } else {
+      alert("❌ 구글 드라이브 동기화 초기화 실패. Client ID를 확인해 주세요.");
+    }
+  }
+};
+
 const promptTeacherLogin = () => {
-  if (sessionStorage.getItem('teacher_authenticated') === 'true') {
-    window.location.hash = "#teacher";
-    return;
-  }
-  const entered = prompt("🔒 교사용 관리자 비밀번호를 입력해 주세요:");
-  if (entered === null) return;
-  
-  if (entered === teacherPasscode) {
-    sessionStorage.setItem('teacher_authenticated', 'true');
-    window.location.hash = "#teacher";
-  } else {
-    alert("❌ 비밀번호가 올바르지 않습니다.");
-  }
+  window.location.hash = "#teacher";
 };
 
 
@@ -3910,18 +4522,174 @@ window.loginWithGoogleDrive = loginWithGoogleDrive;
 window.syncWithGoogleDriveManual = syncWithGoogleDriveManual;
 window.logoutGoogleDrive = logoutGoogleDrive;
 window.copyTeacherDashboardLink = copyTeacherDashboardLink;
+window.initFirebaseSync = initFirebaseSync;
+window.saveFirebaseConfig = saveFirebaseConfig;
+window.disconnectFirebase = disconnectFirebase;
+window.loginWithFirebaseGoogle = loginWithFirebaseGoogle;
+window.logoutFirebaseGoogle = logoutFirebaseGoogle;
+window.changeSyncMode = changeSyncMode;
+window.toggleRosterSelectAll = toggleRosterSelectAll;
+window.updateRosterSelectAllState = updateRosterSelectAllState;
+window.filterRosterList = filterRosterList;
+window.setBatchTemplate = setBatchTemplate;
+window.applyBatchPoints = applyBatchPoints;
+window.toggleFbAdvancedFields = toggleFbAdvancedFields;
+window.loginAsTeacher = loginAsTeacher;
+
+const handleTeacherLogout = () => {
+  sessionStorage.removeItem('teacher_authenticated');
+  clearGoogleTokens();
+  if (currentSyncMode === 'firebase') {
+    if (firebase.apps.length > 0) {
+      firebase.auth().signOut().catch(err => console.error(err));
+    }
+    firebaseUser = null;
+    localStorage.removeItem('firebaseUser');
+  }
+  alert("로그아웃 되었습니다.");
+  location.reload();
+};
+window.handleTeacherLogout = handleTeacherLogout;
+
+const toggleLandingSettings = () => {
+  const panel = document.getElementById('landing-settings-panel');
+  if (!panel) return;
+  const isHidden = panel.classList.contains('hidden');
+  if (isHidden) {
+    panel.classList.remove('hidden');
+    
+    // Load current values
+    const modeSelect = document.getElementById('landing-sync-mode');
+    if (modeSelect) modeSelect.value = currentSyncMode;
+    
+    const inputGdriveClientId = document.getElementById('landing-gdrive-client-id');
+    if (inputGdriveClientId) inputGdriveClientId.value = googleClientId || '';
+    
+    const inputFbUrl = document.getElementById('landing-fb-db-url');
+    const inputFbApiKey = document.getElementById('landing-fb-api-key');
+    const inputFbProjId = document.getElementById('landing-fb-project-id');
+    const inputFbSyncKey = document.getElementById('landing-fb-sync-key');
+    
+    if (firebaseConfig) {
+      const isDefault = (firebaseConfig.databaseURL === defaultFirebaseConfig.databaseURL);
+      if (inputFbUrl) inputFbUrl.value = isDefault ? '' : (firebaseConfig.databaseURL || '');
+      if (inputFbApiKey) inputFbApiKey.value = isDefault ? '' : (firebaseConfig.apiKey || '');
+      if (inputFbProjId) inputFbProjId.value = isDefault ? '' : (firebaseConfig.projectId || '');
+      if (inputFbSyncKey) inputFbSyncKey.value = firebaseConfig.classroomSyncKey || '';
+    }
+    
+    changeLandingSyncMode(currentSyncMode);
+  } else {
+    panel.classList.add('hidden');
+  }
+};
+
+const changeLandingSyncMode = (mode) => {
+  const gdriveFields = document.getElementById('landing-gdrive-fields');
+  const firebaseFields = document.getElementById('landing-firebase-fields');
+  if (gdriveFields && firebaseFields) {
+    if (mode === 'gdrive') {
+      gdriveFields.classList.remove('hidden');
+      firebaseFields.classList.add('hidden');
+    } else if (mode === 'firebase') {
+      firebaseFields.classList.remove('hidden');
+      gdriveFields.classList.add('hidden');
+    } else {
+      gdriveFields.classList.add('hidden');
+      firebaseFields.classList.add('hidden');
+    }
+  }
+};
+
+const saveLandingSettings = () => {
+  const mode = document.getElementById('landing-sync-mode').value;
+  
+  if (mode === 'gdrive') {
+    const clientId = document.getElementById('landing-gdrive-client-id').value.trim();
+    if (!clientId) {
+      alert("❌ Google Client ID는 필수 입력 사항입니다.");
+      return;
+    }
+    localStorage.setItem('googleClientId', clientId);
+    googleClientId = clientId;
+    localStorage.setItem('currentSyncMode', 'gdrive');
+    currentSyncMode = 'gdrive';
+  } else if (mode === 'firebase') {
+    const dbUrl = document.getElementById('landing-fb-db-url').value.trim();
+    const apiKey = document.getElementById('landing-fb-api-key').value.trim();
+    const projId = document.getElementById('landing-fb-project-id').value.trim();
+    const syncKey = document.getElementById('landing-fb-sync-key').value.trim();
+    
+    if (!dbUrl && !apiKey && !projId) {
+      localStorage.setItem('firebaseConfig', JSON.stringify(defaultFirebaseConfig));
+      firebaseConfig = defaultFirebaseConfig;
+    } else {
+      if (!dbUrl || !apiKey || !projId) {
+        alert("❌ 파이어베이스 설정을 모두 입력하거나, 전부 비워두어 기본 서버를 사용해 주세요.");
+        return;
+      }
+      const newConfig = {
+        databaseURL: dbUrl,
+        apiKey: apiKey,
+        projectId: projId,
+        authDomain: projId + ".firebaseapp.com",
+        classroomSyncKey: syncKey || ''
+      };
+      localStorage.setItem('firebaseConfig', JSON.stringify(newConfig));
+      firebaseConfig = newConfig;
+    }
+    localStorage.setItem('currentSyncMode', 'firebase');
+    currentSyncMode = 'firebase';
+  } else {
+    localStorage.setItem('currentSyncMode', 'local');
+    currentSyncMode = 'local';
+  }
+  
+  alert("💾 설정이 성공적으로 저장되었습니다!");
+  location.reload();
+};
+
+const loginLocalBypass = () => {
+  currentSyncMode = 'local';
+  localStorage.setItem('currentSyncMode', 'local');
+  sessionStorage.setItem('teacher_authenticated', 'true');
+  alert("🎉 구글 로그인 없이 로컬 모드로 진입합니다.\n(데이터는 브라우저의 localStorage에만 저장됩니다.)");
+  window.location.hash = "#teacher";
+  location.reload();
+};
+
+window.toggleLandingSettings = toggleLandingSettings;
+window.changeLandingSyncMode = changeLandingSyncMode;
+window.saveLandingSettings = saveLandingSettings;
+window.loginLocalBypass = loginLocalBypass;
+
+const handleAlwaysOnTopChange = (checked) => {
+  localStorage.setItem('electronAlwaysOnTop', checked ? 'true' : 'false');
+  if (window.electronAPI && window.electronAPI.setAlwaysOnTop) {
+    window.electronAPI.setAlwaysOnTop(checked);
+  }
+};
+
+window.handleAlwaysOnTopChange = handleAlwaysOnTopChange;
+
 
 const autoSyncOnLoad = async () => {
-  if (googleClientId && googleAccessToken) {
-    try {
-      await fetchUserProfile();
-      await syncWithGoogleDrive();
-      console.log("[Google Drive] 자동 동기화 성공");
-    } catch (err) {
-      console.warn("[Google Drive] 자동 동기화 실패 (인증 만료 등):", err);
-    } finally {
+  if (currentSyncMode === 'gdrive') {
+    if (googleClientId && googleAccessToken) {
+      try {
+        await fetchUserProfile();
+        await syncWithGoogleDrive();
+        console.log("[Google Drive] 자동 동기화 성공");
+      } catch (err) {
+        console.warn("[Google Drive] 자동 동기화 실패 (인증 만료 등):", err);
+      } finally {
+        updateSyncStatusUI();
+      }
+    } else {
       updateSyncStatusUI();
     }
+  } else if (currentSyncMode === 'firebase') {
+    initFirebaseSync();
   } else {
     updateSyncStatusUI();
   }
@@ -3937,6 +4705,54 @@ const initAnnouncementEditor = () => {
       const newText = contentEl.innerText.trim();
       config.today_announcement = newText;
       saveData();
+    });
+
+    // 엔터 입력 시 자동으로 번호 매기기 및 문장 구분
+    contentEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return;
+        const range = selection.getRangeAt(0);
+
+        // 커서 앞쪽의 텍스트 추출
+        const preCaretRange = range.cloneRange();
+        preCaretRange.selectNodeContents(contentEl);
+        preCaretRange.setEnd(range.endContainer, range.endOffset);
+        const textBeforeCaret = preCaretRange.toString();
+
+        // 줄바꿈으로 분리하여 현재 줄 분석
+        const linesBefore = textBeforeCaret.split('\n');
+        const currentLine = linesBefore[linesBefore.length - 1];
+
+        // 숫자로 시작하는지 확인 (예: "1. ", "2. ")
+        const numberMatch = currentLine.match(/^(\d+)\.\s*(.*)/);
+
+        if (numberMatch) {
+          const num = parseInt(numberMatch[1], 10);
+          const textAfterNumber = numberMatch[2].trim();
+
+          if (textAfterNumber === '') {
+            // 내용 없이 번호만 있는 줄에서 엔터를 치면 번호를 지우고 줄바꿈만 수행 (리스트 종료)
+            e.preventDefault();
+            const lenToDelete = currentLine.length;
+            for (let i = 0; i < lenToDelete; i++) {
+              document.execCommand('delete');
+            }
+            document.execCommand('insertText', false, '\n');
+          } else {
+            // 내용이 있는 줄에서 엔터를 치면 다음 번호를 자동으로 매겨서 줄바꿈
+            e.preventDefault();
+            const nextNum = num + 1;
+            document.execCommand('insertText', false, `\n${nextNum}. `);
+          }
+        } else {
+          // 숫자로 시작하지 않는 경우, 텍스트가 존재하면 자동으로 "1. "으로 시작
+          if (currentLine.trim() !== '') {
+            e.preventDefault();
+            document.execCommand('insertText', false, '\n1. ');
+          }
+        }
+      }
     });
 
     // 붙여넣기 시 서식을 모두 지우고 일반 텍스트만 들어가도록 처리
@@ -3992,6 +4808,22 @@ window.onload = () => {
   
   // 학급 달성률 게이지 업데이트
   updateClassProgress();
+  
+  // 일렉트론 데스크톱 환경 초기화
+  if (window.electronAPI && window.electronAPI.isElectron) {
+    const elSettings = document.getElementById('electron-only-settings');
+    if (elSettings) {
+      elSettings.classList.remove('hidden');
+    }
+    const alwaysOnTopCheck = document.getElementById('electron-always-on-top');
+    const isAlwaysOnTop = localStorage.getItem('electronAlwaysOnTop') === 'true';
+    if (alwaysOnTopCheck) {
+      alwaysOnTopCheck.checked = isAlwaysOnTop;
+    }
+    if (window.electronAPI.setAlwaysOnTop) {
+      window.electronAPI.setAlwaysOnTop(isAlwaysOnTop);
+    }
+  }
   
   router();
 };
