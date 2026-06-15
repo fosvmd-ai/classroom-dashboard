@@ -9,6 +9,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Outfit:wght@300;400;500;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <!-- Google Identity Services (GIS) SDK -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -48,6 +50,7 @@
               <button class="back-btn" id="btn-volume-toggle" onclick="toggleVolume()" style="background:#f59e0b; border-color:#d97706; font-weight:bold; cursor:pointer;">🔊 소리 켬</button>
               <button class="back-btn" onclick="openPickerModal()" style="background:#ec4899; border-color:#db2777; font-weight:bold; cursor:pointer;">🎲 발표자 추첨</button>
               <button class="back-btn" onclick="openTimerModal()" style="background:#10b981; border-color:#059669; font-weight:bold; cursor:pointer;">⏱️ 모둠 타이머</button>
+              <button class="back-btn" id="btn-header-sync" onclick="syncWithGoogleDriveManual()" style="background:#0f172a; border-color:#334155; font-weight:bold; cursor:pointer; display:none; align-items:center; gap:6px;">🔄 드라이브 동기화</button>
               <a href="#student-login" class="back-btn" style="background:#2563eb; border-color:#3b82f6; text-decoration:none; text-align:center;">🛡️ 학생 수첩 조회</a>
               <button class="back-btn" style="background:#475569; border-color:#64748b; font-weight:bold; cursor:pointer;" onclick="copyStudentPortalLink()">📋 링크 복사</button>
             </div>
@@ -278,6 +281,53 @@
           <button class="btn-success" onclick="exportClassroomData()" style="padding: 8px 16px; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">📥 데이터 내보내기 (백업)</button>
           <button class="btn-secondary" onclick="triggerImportFileInput()" style="padding: 8px 16px; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; background-color: #4f46e5; border-color: #4f46e5;">📤 데이터 가져오기 (복원)</button>
           <input type="file" id="import-data-file-input" onchange="importClassroomData(event)" accept=".json" style="display: none;">
+        </div>
+      </div>
+
+      <!-- 📂 구글 드라이브(Google Drive) 클라우드 동기화 설정 -->
+      <div style="margin-top: 30px; padding-top: 20px; border-top: 2px dashed var(--border-color); display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+          <h3 style="font-size: 15px; font-weight: 700; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 6px;">
+            📂 구글 드라이브 클라우드 동기화 설정
+          </h3>
+          <div id="sync-status-container" style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: bold; color: var(--text-muted);">
+            <span id="sync-status-badge" class="sync-status-badge badge-offline"></span>
+            <span id="sync-status-text">로컬 모드로 작동 중 (오프라인)</span>
+          </div>
+        </div>
+        
+        <p style="font-size: 13px; color: var(--text-muted); margin: 0; line-height: 1.5;">
+          교사 개인의 구글 드라이브(Google Drive)에 백업 파일(<code>classroom_dashboard_backup.json</code>)을 저장하여 다른 브라우저나 기기에서 손쉽게 데이터를 연동합니다. 복잡한 데이터베이스 서버 설정 없이 구글 계정 로그인만으로 자동 동기화됩니다.
+        </p>
+
+        <div style="display: flex; flex-direction: column; gap: 4px; max-width: 600px;">
+          <label style="font-size: 12px; font-weight: bold; color: var(--text-muted);">Google Client ID (구글 클라우드 콘솔 발급)</label>
+          <input type="text" id="gdrive-client-id" placeholder="클라이언트 ID 입력 (.apps.googleusercontent.com)" style="padding: 8px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 13px; outline: none; background: var(--bg-card); color: var(--text-main);">
+        </div>
+
+        <div id="google-drive-auth-section" style="margin-top: 10px; padding: 16px; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: rgba(0, 0, 0, 0.02); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <span style="font-size: 14px; font-weight: bold; color: var(--text-main);">🔑 구글 드라이브 연동 상태</span>
+            <span id="google-drive-state-desc" style="font-size: 12px; color: var(--text-muted);">Google Client ID를 입력한 후 계정 연동 버튼을 눌러주세요.</span>
+          </div>
+          <div id="google-drive-user-profile" style="display: flex; align-items: center; gap: 12px;">
+            <!-- 비로그인 상태: 구글 로그인 버튼 -->
+            <button id="btn-gdrive-login" onclick="loginWithGoogleDrive()" style="display: flex; align-items: center; gap: 8px; padding: 8px 16px; border: 1px solid #dadce0; border-radius: 4px; background: white; color: #3c4043; font-size: 14px; font-weight: bold; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.08); transition: var(--transition-smooth);">
+              <svg width="18" height="18" viewBox="0 0 18 18">
+                <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
+                <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.683 5.482 18 9 18z" fill="#34A853"/>
+                <path d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.173 0 7.548 0 9s.347 2.827.957 4.039l3.007-2.332z" fill="#FBBC05"/>
+                <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.806 11.426 0 9 0 5.482 0 2.438 2.317.957 5.302l3.007 2.332C4.672 5.164 6.656 3.58 9 3.58z" fill="#EA4335"/>
+              </svg>
+              Google 계정 연동 및 로그인
+            </button>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; flex-wrap: wrap;">
+          <button class="btn-success" onclick="copyTeacherDashboardLink()" id="btn-gdrive-share" style="padding: 8px 16px; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">🔗 설정 포함 교사 링크 복사</button>
+          <button class="btn-secondary hidden" onclick="disconnectGoogleDrive()" id="btn-gdrive-disconnect" style="padding: 8px 16px; font-size: 13px; cursor: pointer; background: #64748b; border-color: #64748b; color: white;">❌ 연동 해제 및 로컬 모드 전환</button>
+          <button class="btn-primary" onclick="saveGoogleDriveConfig()" style="padding: 8px 16px; font-size: 13px; cursor: pointer;">💾 클라우드 설정 저장</button>
         </div>
       </div>
     </div>

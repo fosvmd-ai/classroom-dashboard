@@ -63,6 +63,11 @@ let pendingRequests = JSON.parse(localStorage.getItem('pendingRequests')) || {};
 let absentLogs = JSON.parse(localStorage.getItem('absentLogs')) || {};
 let processedDeductionDates = JSON.parse(localStorage.getItem('processedDeductionDates')) || [];
 let teacherPasscode = localStorage.getItem('teacherPasscode') || '1234';
+let googleClientId = localStorage.getItem('googleClientId') || '';
+let googleAccessToken = localStorage.getItem('googleAccessToken') || '';
+let googleDriveFileId = localStorage.getItem('googleDriveFileId') || '';
+let googleUserProfile = JSON.parse(localStorage.getItem('googleUserProfile')) || null;
+let isSyncingFromRemote = false;
 let referrerView = "login";
 let currentDashboardDate = getTodayDateString();
 let currentDashboardViewMode = "students";
@@ -118,6 +123,496 @@ const saveData = () => {
   localStorage.setItem('pendingRequests', JSON.stringify(pendingRequests));
   localStorage.setItem('absentLogs', JSON.stringify(absentLogs));
   localStorage.setItem('processedDeductionDates', JSON.stringify(processedDeductionDates));
+  localStorage.setItem('teacherPasscode', String(teacherPasscode));
+
+  // 구글 드라이브 연동 상태이고 동기화 중이 아닐 때 백그라운드 업로드
+  if (googleAccessToken && googleDriveFileId && !isSyncingFromRemote) {
+    uploadGoogleDriveBackupFile(googleDriveFileId).catch(err => {
+      console.error("[Google Drive] 백그라운드 자동 업로드 실패:", err);
+      if (!googleAccessToken) {
+        updateSyncStatusUI();
+      }
+    });
+  }
+};
+
+// URL 파라미터 파싱을 통해 구글 클라이언트 ID 자동 주입 (연동 링크 대응)
+const parseUrlParams = () => {
+  const urlParts = window.location.href.split('?');
+  if (urlParts.length > 1) {
+    const searchParams = new URLSearchParams(urlParts[1]);
+    const clientId = searchParams.get('gClientId');
+    
+    if (clientId) {
+      localStorage.setItem('googleClientId', clientId);
+      googleClientId = clientId;
+      
+      // 주소창에서 매개변수를 깔끔하게 숨김
+      window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+    }
+  }
+};
+
+// 구글 드라이브 연동 상태 UI 업데이트
+const updateSyncStatusUI = () => {
+  const statusBadge = document.getElementById('sync-status-badge');
+  const statusText = document.getElementById('sync-status-text');
+  const btnDisconnect = document.getElementById('btn-gdrive-disconnect');
+  const btnHeaderSync = document.getElementById('btn-header-sync');
+  
+  // 설정 탭 인풋들에 값 채워넣기
+  const inputClientId = document.getElementById('gdrive-client-id');
+  if (inputClientId) {
+    inputClientId.value = googleClientId || '';
+  }
+  
+  if (googleClientId) {
+    if (googleAccessToken) {
+      if (statusBadge) {
+        statusBadge.className = 'sync-status-badge badge-online';
+      }
+      if (statusText) {
+        statusText.innerText = '구글 드라이브 동기화 활성화됨';
+      }
+      if (btnDisconnect) {
+        btnDisconnect.classList.remove('hidden');
+      }
+      if (btnHeaderSync) {
+        btnHeaderSync.style.display = 'inline-flex';
+      }
+    } else {
+      if (statusBadge) {
+        statusBadge.className = 'sync-status-badge badge-offline';
+      }
+      if (statusText) {
+        statusText.innerText = '구글 로그인 대기 중';
+      }
+      if (btnDisconnect) {
+        btnDisconnect.classList.remove('hidden');
+      }
+      if (btnHeaderSync) {
+        btnHeaderSync.style.display = 'none';
+      }
+    }
+  } else {
+    if (statusBadge) {
+      statusBadge.className = 'sync-status-badge badge-offline';
+    }
+    if (statusText) {
+      statusText.innerText = '로컬 모드로 작동 중 (오프라인)';
+    }
+    if (btnDisconnect) {
+      btnDisconnect.classList.add('hidden');
+    }
+    if (btnHeaderSync) {
+      btnHeaderSync.style.display = 'none';
+    }
+  }
+
+  // 구글 로그인 프로필 UI 제어
+  const profileContainer = document.getElementById('google-drive-user-profile');
+  const stateDesc = document.getElementById('google-drive-state-desc');
+  if (profileContainer) {
+    if (!googleClientId) {
+      profileContainer.innerHTML = `<span style="font-size: 13px; color: var(--text-muted); font-weight: bold;">⚠️ 먼저 구글 Client ID 설정을 완료해 주세요.</span>`;
+      if (stateDesc) {
+        stateDesc.innerText = "구글 드라이브 연동을 위해 발급받은 Google Client ID가 필요합니다.";
+      }
+    } else if (googleAccessToken && googleUserProfile) {
+      const photoURL = googleUserProfile.photoURL || 'https://www.gstatic.com/images/branding/product/2x/avatar_square_blue_120dp.png';
+      profileContainer.innerHTML = `
+        <img src="${photoURL}" class="google-profile-img" alt="Google Profile" style="width:36px; height:36px; border-radius:50%; object-fit:cover;">
+        <div class="google-user-info-text">
+          <span class="google-user-name">${googleUserProfile.displayName || '선생님'}</span>
+          <span class="google-user-email">${googleUserProfile.email || ''}</span>
+        </div>
+        <button onclick="logoutGoogleDrive()" style="padding: 6px 12px; font-size: 12px; font-weight: bold; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-main); cursor: pointer; transition: var(--transition-smooth);">
+          ❌ 로그아웃
+        </button>
+      `;
+      if (stateDesc) {
+        stateDesc.innerText = "구글 계정과 연동되어 구글 드라이브에 백업 파일이 자동으로 동기화됩니다.";
+      }
+    } else {
+      profileContainer.innerHTML = `
+        <button id="btn-gdrive-login" onclick="loginWithGoogleDrive()" style="display: flex; align-items: center; gap: 8px; padding: 8px 16px; border: 1px solid #dadce0; border-radius: 4px; background: white; color: #3c4043; font-size: 14px; font-weight: bold; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.08); transition: var(--transition-smooth);">
+          <svg width="18" height="18" viewBox="0 0 18 18">
+            <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
+            <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.683 5.482 18 9 18z" fill="#34A853"/>
+            <path d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.173 0 7.548 0 9s.347 2.827.957 4.039l3.007-2.332z" fill="#FBBC05"/>
+            <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.806 11.426 0 9 0 5.482 0 2.438 2.317.957 5.302l3.007 2.332C4.672 5.164 6.656 3.58 9 3.58z" fill="#EA4335"/>
+          </svg>
+          Google 계정 연동 및 로그인
+        </button>
+      `;
+      if (stateDesc) {
+        stateDesc.innerText = "Google Client ID가 올바릅니다. 구글 계정을 연동해 주세요.";
+      }
+    }
+  }
+};
+
+// 원격 데이터 수신 및 로컬 상태 적용
+const applyRemoteData = (data) => {
+  if (!data) return;
+  
+  isSyncingFromRemote = true;
+  
+  // 데이터 덮어쓰기
+  students = data.students || students;
+  grades = data.grades || grades;
+  dailyLogs = data.dailyLogs || dailyLogs;
+  pointHistory = data.pointHistory || pointHistory;
+  config = data.config || config;
+  dailyAssignments = data.dailyAssignments || dailyAssignments;
+  pendingRequests = data.pendingRequests || {};
+  absentLogs = data.absentLogs || {};
+  processedDeductionDates = data.processedDeductionDates || [];
+  teacherPasscode = data.teacherPasscode || '1234';
+  
+  // 로컬 localStorage에도 영구 보존
+  localStorage.setItem('students', JSON.stringify(students));
+  localStorage.setItem('grades', JSON.stringify(grades));
+  localStorage.setItem('dailyLogs', JSON.stringify(dailyLogs));
+  localStorage.setItem('pointHistory', JSON.stringify(pointHistory));
+  localStorage.setItem('config', JSON.stringify(config));
+  localStorage.setItem('dailyAssignments', JSON.stringify(dailyAssignments));
+  localStorage.setItem('pendingRequests', JSON.stringify(pendingRequests));
+  localStorage.setItem('absentLogs', JSON.stringify(absentLogs));
+  localStorage.setItem('processedDeductionDates', JSON.stringify(processedDeductionDates));
+  localStorage.setItem('teacherPasscode', String(teacherPasscode));
+  
+  isSyncingFromRemote = false;
+  
+  // 미제출 감점 처리 재평가 (혹시 누락된 날이 있다면 자동 처리)
+  processAutoDeductions();
+  
+  // 현재 활성 뷰 리렌더링
+  const hash = window.location.hash;
+  if (hash === "#teacher") {
+    // 현재 활성화된 탭 버튼에 따라 분기 렌더링
+    const activeTabBtn = document.querySelector('.tab-btn.active');
+    if (activeTabBtn) {
+      const activeTab = activeTabBtn.id.replace('tab-btn-', '');
+      if (activeTab === 'dashboard') {
+        renderTeacherDashboard();
+      } else if (activeTab === 'records') {
+        if (!document.getElementById('records-detail-view').classList.contains('hidden')) {
+          renderDailyRecordsTable();
+        } else {
+          renderCalendar();
+        }
+      } else if (activeTab === 'roster') {
+        renderRosterPointsManager();
+      } else if (activeTab === 'grades') {
+        renderGradesConfig();
+      }
+    }
+    updateWeeklyLeaderboard();
+  } else if (hash.startsWith('#student/')) {
+    router(); // 학생 수첩 리렌더링
+  }
+};
+
+let tokenClient;
+
+// Google Identity Services (GIS) 및 Google Drive API 초기화
+const initGoogleDriveSync = () => {
+  if (!googleClientId) {
+    updateSyncStatusUI();
+    return;
+  }
+  
+  if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
+    console.log("Google Accounts SDK not loaded yet, retrying in 100ms...");
+    setTimeout(initGoogleDriveSync, 100);
+    return;
+  }
+
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: googleClientId,
+    scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
+    callback: (tokenResponse) => {
+      if (tokenResponse.error !== undefined) {
+        console.error("Google Auth error:", tokenResponse.error);
+        alert("❌ 구글 로그인 실패: " + tokenResponse.error);
+        return;
+      }
+      googleAccessToken = tokenResponse.access_token;
+      localStorage.setItem('googleAccessToken', googleAccessToken);
+      
+      handleAfterLogin();
+    },
+  });
+  
+  updateSyncStatusUI();
+};
+
+const handleAfterLogin = async () => {
+  try {
+    await fetchUserProfile();
+    await syncWithGoogleDrive();
+    alert("🎉 구글 드라이브 연동 및 동기화가 완료되었습니다!");
+  } catch (err) {
+    console.error(err);
+    alert("❌ 구글 드라이브 동기화 실패: " + err.message);
+  } finally {
+    updateSyncStatusUI();
+  }
+};
+
+const clearGoogleTokens = () => {
+  googleAccessToken = '';
+  googleDriveFileId = '';
+  googleUserProfile = null;
+  localStorage.removeItem('googleAccessToken');
+  localStorage.removeItem('googleDriveFileId');
+  localStorage.removeItem('googleUserProfile');
+};
+
+const fetchUserProfile = async () => {
+  if (!googleAccessToken) return;
+  const res = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+    headers: { 'Authorization': `Bearer ${googleAccessToken}` }
+  });
+  if (!res.ok) {
+    if (res.status === 401) {
+      clearGoogleTokens();
+    }
+    throw new Error("사용자 정보를 가져오지 못했습니다.");
+  }
+  const data = await res.json();
+  googleUserProfile = {
+    displayName: data.name,
+    email: data.email,
+    photoURL: data.picture
+  };
+  localStorage.setItem('googleUserProfile', JSON.stringify(googleUserProfile));
+};
+
+const findGoogleDriveBackupFile = async () => {
+  if (!googleAccessToken) return null;
+  const url = 'https://www.googleapis.com/drive/v3/files?' + new URLSearchParams({
+    q: "name = 'classroom_dashboard_backup.json' and trashed = false",
+    fields: "files(id, name)",
+    spaces: "drive"
+  });
+  
+  const res = await fetch(url, {
+    headers: { 'Authorization': `Bearer ${googleAccessToken}` }
+  });
+  if (!res.ok) {
+    if (res.status === 401) {
+      clearGoogleTokens();
+    }
+    throw new Error("구글 드라이브 파일 검색 실패");
+  }
+  const data = await res.json();
+  if (data.files && data.files.length > 0) {
+    googleDriveFileId = data.files[0].id;
+    localStorage.setItem('googleDriveFileId', googleDriveFileId);
+    return googleDriveFileId;
+  }
+  return null;
+};
+
+const downloadGoogleDriveBackupFile = async (fileId) => {
+  if (!googleAccessToken) return;
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+    headers: { 'Authorization': `Bearer ${googleAccessToken}` }
+  });
+  if (!res.ok) {
+    if (res.status === 401) {
+      clearGoogleTokens();
+    }
+    throw new Error("구글 드라이브 백업 파일 다운로드 실패");
+  }
+  const data = await res.json();
+  applyRemoteData(data);
+};
+
+const uploadGoogleDriveBackupFile = async (fileId) => {
+  if (!googleAccessToken) return;
+  
+  const metadata = {
+    name: 'classroom_dashboard_backup.json',
+    mimeType: 'application/json'
+  };
+  
+  const fileContent = JSON.stringify({
+    students,
+    grades,
+    dailyLogs,
+    pointHistory,
+    config,
+    dailyAssignments,
+    pendingRequests,
+    absentLogs,
+    processedDeductionDates,
+    teacherPasscode
+  });
+  
+  const boundary = 'foo_bar_baz';
+  const delimiter = "\r\n--" + boundary + "\r\n";
+  const close_delim = "\r\n--" + boundary + "--";
+  
+  const multipartRequestBody =
+      delimiter +
+      'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+      JSON.stringify(metadata) +
+      delimiter +
+      'Content-Type: application/json\r\n\r\n' +
+      fileContent +
+      close_delim;
+  
+  let url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+  let method = 'POST';
+  
+  if (fileId) {
+    url = `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`;
+    method = 'PATCH';
+  }
+  
+  const res = await fetch(url, {
+    method: method,
+    headers: {
+      'Authorization': `Bearer ${googleAccessToken}`,
+      'Content-Type': `multipart/related; boundary=${boundary}`
+    },
+    body: multipartRequestBody
+  });
+  
+  if (!res.ok) {
+    if (res.status === 401) {
+      clearGoogleTokens();
+    }
+    throw new Error("구글 드라이브 백업 파일 업로드 실패");
+  }
+  
+  const data = await res.json();
+  if (data.id && !fileId) {
+    googleDriveFileId = data.id;
+    localStorage.setItem('googleDriveFileId', googleDriveFileId);
+  }
+};
+
+const syncWithGoogleDrive = async () => {
+  if (!googleAccessToken) return;
+  
+  const fileId = await findGoogleDriveBackupFile();
+  if (fileId) {
+    await downloadGoogleDriveBackupFile(fileId);
+  } else {
+    await uploadGoogleDriveBackupFile(null);
+  }
+};
+
+const syncWithGoogleDriveManual = async () => {
+  if (!googleAccessToken) {
+    alert("❌ 구글 드라이브 연동이 해제되어 있습니다. 설정을 먼저 확인해 주세요.");
+    return;
+  }
+  
+  const btnHeader = document.getElementById('btn-header-sync');
+  if (btnHeader) {
+    btnHeader.innerHTML = `🔄 동기화 중...`;
+    btnHeader.disabled = true;
+    btnHeader.classList.add('spin-animation');
+  }
+  
+  try {
+    await syncWithGoogleDrive();
+    alert("🎉 구글 드라이브 동기화가 성공적으로 완료되었습니다!");
+  } catch (err) {
+    console.error(err);
+    alert("❌ 구글 드라이브 동기화 실패: " + err.message);
+  } finally {
+    if (btnHeader) {
+      btnHeader.innerHTML = `🔄 드라이브 동기화`;
+      btnHeader.disabled = false;
+      btnHeader.classList.remove('spin-animation');
+    }
+    updateSyncStatusUI();
+  }
+};
+
+const loginWithGoogleDrive = () => {
+  if (!googleClientId) {
+    alert("❌ 먼저 Google Client ID를 입력하고 '클라우드 설정 저장'을 눌러주세요.");
+    return;
+  }
+  
+  if (!tokenClient) {
+    initGoogleDriveSync();
+  }
+  
+  if (tokenClient) {
+    tokenClient.requestAccessToken({ prompt: 'consent' });
+  } else {
+    alert("구글 인증 라이브러리가 로드되지 않았습니다. 잠시 후 다시 시도해 주세요.");
+  }
+};
+
+const logoutGoogleDrive = () => {
+  const proceed = confirm("⚠️ 정말 로그아웃하시겠습니까? (로그아웃 시 구글 드라이브 동기화가 중단되며 로컬 저장소 데이터만 유지됩니다.)");
+  if (!proceed) return;
+  
+  clearGoogleTokens();
+  alert("ℹ️ 구글 계정 로그아웃이 완료되었습니다.");
+  location.reload();
+};
+
+const saveGoogleDriveConfig = () => {
+  const clientId = document.getElementById('gdrive-client-id').value.trim();
+  
+  if (!clientId) {
+    alert("❌ Google Client ID는 필수 입력 사항입니다.");
+    return;
+  }
+  
+  localStorage.setItem('googleClientId', clientId);
+  googleClientId = clientId;
+  
+  alert("🎉 구글 드라이브 설정이 저장되었습니다. 연동을 완료하기 위해 구글 계정으로 로그인해 주세요.");
+  initGoogleDriveSync();
+};
+
+const disconnectGoogleDrive = () => {
+  const proceed = confirm("⚠️ 정말 구글 드라이브 연동을 해제하고 로컬 단독 모드로 전환하시겠습니까? (이후 데이터는 현재 브라우저에만 저장됩니다.)");
+  if (!proceed) return;
+  
+  clearGoogleTokens();
+  localStorage.removeItem('googleClientId');
+  googleClientId = '';
+  
+  alert("ℹ️ 구글 드라이브 연동이 해제되었습니다. 로컬 모드로 전환하기 위해 새로고침합니다.");
+  location.reload();
+};
+
+const copyTeacherDashboardLink = () => {
+  let url = window.location.origin + window.location.pathname + "#teacher";
+  if (googleClientId) {
+    const params = new URLSearchParams();
+    params.set('gClientId', googleClientId);
+    url += "?" + params.toString();
+  }
+  
+  const textarea = document.createElement('textarea');
+  textarea.value = url;
+  textarea.style.position = 'fixed';
+  document.body.appendChild(textarea);
+  textarea.select();
+  try {
+    const successful = document.execCommand('copy');
+    if (successful) {
+      alert("📋 구글 클라이언트 ID가 포함된 교사용 대시보드 주소가 클립보드에 복사되었습니다.\n\n다른 브라우저나 기기(태블릿 등)의 주소창에 이 링크를 붙여넣기 하시면 설정이 한 번에 자동 연동됩니다!");
+    } else {
+      alert("❌ 복사 실패. 주소창의 링크를 수동으로 복사해 주세요.");
+    }
+  } catch (err) {
+    console.error(err);
+  }
+  document.body.removeChild(textarea);
 };
 
 // ==========================================================================
@@ -2797,7 +3292,7 @@ const saveTeacherPasscode = () => {
     return;
   }
   teacherPasscode = val;
-  localStorage.setItem('teacherPasscode', teacherPasscode);
+  saveData();
   alert("🔒 교사용 비밀번호가 성공적으로 변경되었습니다!");
 };
 
@@ -2891,6 +3386,31 @@ const importClassroomData = (event) => {
       localStorage.setItem('absentLogs', JSON.stringify(data.absentLogs || {}));
       localStorage.setItem('processedDeductionDates', JSON.stringify(data.processedDeductionDates || []));
       localStorage.setItem('teacherPasscode', String(data.teacherPasscode || '1234'));
+
+      // 만약 구글 드라이브가 연동되어 있다면, 리로드 전 구글 드라이브에도 즉시 업로드하여 덮어씌워짐 방지
+      if (googleAccessToken && googleDriveFileId) {
+        // 임시로 로컬 변수도 최신화해주어 업로드 데이터로 쓰이게 함
+        students = data.students;
+        grades = data.grades;
+        dailyLogs = data.dailyLogs || {};
+        pointHistory = data.pointHistory || [];
+        config = data.config || {};
+        dailyAssignments = data.dailyAssignments || {};
+        pendingRequests = data.pendingRequests || {};
+        absentLogs = data.absentLogs || {};
+        processedDeductionDates = data.processedDeductionDates || [];
+        teacherPasscode = String(data.teacherPasscode || '1234');
+
+        uploadGoogleDriveBackupFile(googleDriveFileId).then(() => {
+          alert("🎉 학급 데이터 로컬 복원 및 구글 드라이브 동기화 업로드가 완료되었습니다!");
+          location.reload();
+        }).catch(err => {
+          console.error("[Google Drive] 가져오기 데이터 업로드 실패:", err);
+          alert("🎉 학급 데이터 로컬 복원은 완료되었으나 구글 드라이브 업로드 중 오류가 발생했습니다: " + err.message);
+          location.reload();
+        });
+        return; // 리로드는 구글 드라이브 업로드 완료 후 실행
+      }
 
       alert("🎉 학급 데이터 복원이 완료되었습니다. 최신 정보를 반영하기 위해 대시보드를 새로고침합니다.");
       location.reload();
@@ -3384,16 +3904,39 @@ window.startRollPicker = startRollPicker;
 window.closeWinnerOverlay = closeWinnerOverlay;
 window.updateClassProgress = updateClassProgress;
 window.triggerConfettiEffect = triggerConfettiEffect;
+window.saveGoogleDriveConfig = saveGoogleDriveConfig;
+window.disconnectGoogleDrive = disconnectGoogleDrive;
+window.loginWithGoogleDrive = loginWithGoogleDrive;
+window.syncWithGoogleDriveManual = syncWithGoogleDriveManual;
+window.logoutGoogleDrive = logoutGoogleDrive;
+window.copyTeacherDashboardLink = copyTeacherDashboardLink;
+
+const autoSyncOnLoad = async () => {
+  if (googleClientId && googleAccessToken) {
+    try {
+      await fetchUserProfile();
+      await syncWithGoogleDrive();
+      console.log("[Google Drive] 자동 동기화 성공");
+    } catch (err) {
+      console.warn("[Google Drive] 자동 동기화 실패 (인증 만료 등):", err);
+    } finally {
+      updateSyncStatusUI();
+    }
+  } else {
+    updateSyncStatusUI();
+  }
+};
+
 
 
 const initAnnouncementEditor = () => {
   const contentEl = document.getElementById('announcement-content');
   if (contentEl) {
-    // 포커스를 잃었을 때 자동으로 localStorage에 저장
+    // 포커스를 잃었을 때 자동으로 저장
     contentEl.addEventListener('blur', () => {
       const newText = contentEl.innerText.trim();
       config.today_announcement = newText;
-      localStorage.setItem('config', JSON.stringify(config));
+      saveData();
     });
 
     // 붙여넣기 시 서식을 모두 지우고 일반 텍스트만 들어가도록 처리
@@ -3427,6 +3970,7 @@ const initAnnouncementEditor = () => {
 
 window.addEventListener('hashchange', router);
 window.onload = () => {
+  parseUrlParams(); // URL 파라미터로 전파된 구글 클라이언트 ID 파싱
   initDatabaseMigration(); // 데이터 로드 마이그레이션 적용
   processAutoDeductions(); // 미제출 과제 자동 감점 실행
   
@@ -3441,6 +3985,10 @@ window.onload = () => {
   startClock();
   initDailyRecordsTab();
   initAnnouncementEditor();
+  
+  // 구글 드라이브 연동 초기화 및 자동 동기화
+  initGoogleDriveSync();
+  autoSyncOnLoad();
   
   // 학급 달성률 게이지 업데이트
   updateClassProgress();
