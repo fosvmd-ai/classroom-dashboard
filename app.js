@@ -235,8 +235,8 @@ const parseUrlParams = () => {
       localStorage.setItem('currentSyncMode', 'gdrive');
       currentSyncMode = 'gdrive';
       
-      const cleanHash = window.location.hash.split('?')[0];
-      window.history.replaceState({}, document.title, window.location.pathname + cleanHash);
+      // const cleanHash = window.location.hash.split('?')[0];
+      // window.history.replaceState({}, document.title, window.location.pathname + cleanHash);
       return;
     }
 
@@ -259,8 +259,8 @@ const parseUrlParams = () => {
       localStorage.setItem('currentSyncMode', 'firebase');
       currentSyncMode = 'firebase';
       
-      const cleanHash = window.location.hash.split('?')[0];
-      window.history.replaceState({}, document.title, window.location.pathname + cleanHash);
+      // const cleanHash = window.location.hash.split('?')[0];
+      // window.history.replaceState({}, document.title, window.location.pathname + cleanHash);
     }
   }
 };
