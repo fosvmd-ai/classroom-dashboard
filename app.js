@@ -117,6 +117,7 @@ let dbRef = null;
 let firebaseUser = JSON.parse(localStorage.getItem('firebaseUser')) || null;
 let isSyncingFromRemote = false;
 let isFirebaseDataLoaded = false;
+let hasAttemptedInitialization = false;
 let referrerView = "login";
 let currentDashboardDate = getTodayDateString();
 let currentDashboardViewMode = "students";
@@ -607,12 +608,14 @@ const initFirebaseSync = () => {
       const data = snapshot.val();
       if (data) {
         applyRemoteData(data);
+        hasAttemptedInitialization = false;
       } else {
         console.log("[Firebase] 데이터 수신: 데이터가 없습니다 (null).");
         isFirebaseDataLoaded = true;
         
         // 교사 기기이고 아직 원격 DB가 비어있는 상태라면, 로컬 상태를 기준으로 원격을 초기화
-        if (isTeacherAuthenticated() && !isSyncingFromRemote) {
+        if (isTeacherAuthenticated() && !isSyncingFromRemote && !hasAttemptedInitialization) {
+          hasAttemptedInitialization = true;
           console.log("[Firebase] 교사 권한이 감지되어 원격 데이터베이스를 로컬 데이터로 초기화합니다.");
           dbRef.update({
             students,
