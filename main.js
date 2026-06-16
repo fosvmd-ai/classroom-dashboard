@@ -86,9 +86,23 @@ function createWindow(port) {
     }
   });
 
-  // 자식 창(Firebase 로그인 팝업 등)이 생성될 때 User-Agent 강제 주입하여 구글 차단 우회
+  // 자식 창(Firebase 로그인 팝업 등)이 생성될 때 User-Agent 및 WebAuthn 차단 주입하여 구글 차단 우회
   mainWindow.webContents.on('did-create-window', (childWindow) => {
     childWindow.webContents.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+    
+    // WebAuthn API 차단 스크립트 주입 (OS 레벨의 Windows Hello/FIDO2 보안 팝업 방지)
+    childWindow.webContents.on('dom-ready', () => {
+      childWindow.webContents.executeJavaScript(`
+        if (navigator.credentials) {
+          navigator.credentials.get = function() {
+            return Promise.reject(new DOMException("WebAuthn is disabled in this application", "NotSupportedError"));
+          };
+          navigator.credentials.create = function() {
+            return Promise.reject(new DOMException("WebAuthn is disabled in this application", "NotSupportedError"));
+          };
+        }
+      `).catch(err => console.error("[Electron Bypass] WebAuthn Injection failed:", err));
+    });
   });
 
   // 메뉴 막대 제거 (깔끔한 데스크톱 화면)
