@@ -3376,8 +3376,25 @@ const openAssignmentModal = (student) => {
   checkboxGroupHtml += '</div>';
 
   // QR URL 매핑
-  const basePortalUrl = window.location.href.split('#')[0];
-  const fullPortalUrl = `${basePortalUrl}#student/${student.student_id}`;
+  let queryStr = "";
+  if (currentSyncMode === 'firebase' && firebaseConfig && firebaseConfig.databaseURL) {
+    const params = new URLSearchParams({
+      dbUrl: firebaseConfig.databaseURL,
+      apiKey: firebaseConfig.apiKey || '',
+      projId: firebaseConfig.projectId || '',
+      syncKey: firebaseConfig.classroomSyncKey || ''
+    });
+    queryStr = "?" + params.toString();
+  } else if (currentSyncMode === 'gdrive' && googleClientId) {
+    queryStr = "?gClientId=" + encodeURIComponent(googleClientId);
+  }
+  
+  let basePortalUrl = window.location.href.split('#')[0];
+  if (basePortalUrl.includes('localhost') || basePortalUrl.includes('127.0.0.1')) {
+    basePortalUrl = "https://fosvmd-ai.github.io/classroom-dashboard/";
+  }
+  
+  const fullPortalUrl = `${basePortalUrl}${queryStr}#student/${student.student_id}`;
   const encodedUrl = encodeURIComponent(fullPortalUrl);
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodedUrl}`;
 
@@ -4078,7 +4095,11 @@ const copyStudentPortalLink = () => {
     queryStr = "?" + params.toString();
   }
   
-  const fullPortalUrl = window.location.origin + window.location.pathname + queryStr + "#landing";
+  let basePortalUrl = window.location.origin + window.location.pathname;
+  if (basePortalUrl.includes('localhost') || basePortalUrl.includes('127.0.0.1')) {
+    basePortalUrl = "https://fosvmd-ai.github.io/classroom-dashboard/";
+  }
+  const fullPortalUrl = basePortalUrl + queryStr + "#landing";
   
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(fullPortalUrl)
