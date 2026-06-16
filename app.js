@@ -182,9 +182,21 @@ const saveData = (skipFirebase = false) => {
   if (skipFirebase) return; // 로컬만 저장하고 파이어베이스 동기화 건너뜀
   if (isSyncingFromRemote) return;
 
-  // 보안 강화: 학생 기기(비인증 상태)는 전체 원격 데이터 동기화를 차단하여 덮어쓰기 방지
-  if (!isTeacherAuthenticated()) {
-    console.log("[Sync Security] 비인증 기기의 전체 원격 저장 차단");
+  // 보안 필터: 교사이거나, 과제 권한이 허용된 학생인 경우에만 쓰기 허용
+  let isAllowedToSave = isTeacherAuthenticated();
+  if (!isAllowedToSave) {
+    const hash = window.location.hash;
+    if (hash.startsWith('#student/')) {
+      const studentId = hash.replace('#student/', '');
+      const student = students.find(s => s.student_id === studentId);
+      if (student && student.can_manage_tasks === true) {
+        isAllowedToSave = true;
+      }
+    }
+  }
+
+  if (!isAllowedToSave) {
+    console.log("[Sync Security] 비인증 기기 및 권한 없는 학생의 전체 원격 저장 차단");
     return;
   }
 
@@ -2409,14 +2421,7 @@ const submitCreateAssignments = () => {
 
   saveData();
   closeCreateAssignmentModal();
-  
-  // 현재 활성화된 탭에 따라 화면 갱신 방식 분기
-  const isDashboardActive = !document.getElementById('tab-content-dashboard').classList.contains('hidden');
-  if (isDashboardActive) {
-    renderTeacherDashboard();
-  } else {
-    showDateDetail(activeCreateDate);
-  }
+  refreshDashboardView(); // 분기형 새로고침 적용
 };
 
 // [신규] 오늘 생성된 과제판 완전히 날려버리기
@@ -2451,9 +2456,34 @@ const deleteCurrentDayAssignments = () => {
   }
 };
 
+// 헬퍼: 현재 화면 상태에 따라 대시보드 갱신 분기 처리
+const refreshDashboardView = () => {
+  const hash = window.location.hash;
+  if (hash.startsWith('#student/')) {
+    const studentId = hash.replace('#student/', '');
+    renderStudentPortal(studentId);
+  } else {
+    const dashboardTab = document.getElementById('tab-content-dashboard');
+    if (dashboardTab && !dashboardTab.classList.contains('hidden')) {
+      renderTeacherDashboard();
+    } else if (typeof activeCreateDate !== 'undefined') {
+      showDateDetail(activeCreateDate);
+    } else {
+      renderTeacherDashboard();
+    }
+  }
+};
+window.refreshDashboardView = refreshDashboardView;
+window.getTodayDateString = getTodayDateString;
+
 // [신규] 메인 대시보드 화면에서 현재 날짜의 과제판을 완전히 삭제
 const deleteDashboardAssignments = () => {
-  const dateKey = currentDashboardDate;
+  let dateKey = currentDashboardDate;
+  const hash = window.location.hash;
+  if (hash.startsWith('#student/')) {
+    dateKey = getTodayDateString(); // 학생 화면은 항상 오늘 기준
+  }
+  
   const tasks = dailyAssignments[dateKey] || [];
   
   if (tasks.length === 0) {
@@ -2487,7 +2517,7 @@ const deleteDashboardAssignments = () => {
     updateWeeklyLeaderboard();
     
     alert(`${dateKey} 과제판이 삭제되었습니다.`);
-    renderTeacherDashboard();
+    refreshDashboardView(); // 분기형 새로고침 적용
   }
 };
 window.deleteDashboardAssignments = deleteDashboardAssignments;
@@ -2980,9 +3010,13 @@ const renderRosterManager = () => {
   students.forEach((student, index) => {
     const tr = document.createElement('tr');
     tr.dataset.index = index;
+    const hasPermission = student.can_manage_tasks === true;
     tr.innerHTML = `
       <td><input type="text" class="roster-id-input" value="${student.student_id}"></td>
       <td><input type="text" class="roster-name-input" value="${student.name}" style="font-weight:bold;"></td>
+      <td style="text-align:center;">
+        <input type="checkbox" class="roster-permission-checkbox" ${hasPermission ? 'checked' : ''} style="transform: scale(1.3); cursor:pointer;">
+      </td>
       <td><button class="btn-delete" onclick="deleteRosterRow(this)">❌ 삭제</button></td>
     `;
     tableBody.appendChild(tr);
@@ -3063,12 +3097,14 @@ const migrateStudentData = (oldStudents, newStudents) => {
     studentMapping.push({ newS, oldS: null, isNew: true });
   });
   
-  // 2. 점수 승계 처리
+  // 2. 점수 및 권한 승계 처리
   studentMapping.forEach(({ newS, oldS, isNew }) => {
     if (isNew) {
       newS.total_points = 0;
+      newS.can_manage_tasks = false;
     } else {
       newS.total_points = oldS.total_points || 0;
+      newS.can_manage_tasks = oldS.can_manage_tasks === true; // 권한 인계
     }
   });
 
@@ -3164,6 +3200,9 @@ const addNewStudentRow = () => {
   tr.innerHTML = `
     <td><input type="text" class="roster-id-input" value="${nextIdStr}"></td>
     <td><input type="text" class="roster-name-input" placeholder="이름 입력" style="font-weight:bold;"></td>
+    <td style="text-align:center;">
+      <input type="checkbox" class="roster-permission-checkbox" style="transform: scale(1.3); cursor:pointer;">
+    </td>
     <td><button class="btn-delete" onclick="deleteRosterRow(this)">❌ 삭제</button></td>
   `;
   tableBody.appendChild(tr);
@@ -3183,6 +3222,8 @@ const saveRoster = () => {
   rows.forEach(row => {
     let idInput = row.querySelector('.roster-id-input').value.trim();
     const nameInput = row.querySelector('.roster-name-input').value.trim();
+    const permissionCheckbox = row.querySelector('.roster-permission-checkbox');
+    const canManageTasks = permissionCheckbox ? permissionCheckbox.checked : false;
 
     if (!idInput || !nameInput) {
       alert("학번과 이름은 빈칸일 수 없습니다.");
@@ -3206,7 +3247,8 @@ const saveRoster = () => {
     newStudents.push({
       student_id: idInput,
       name: nameInput,
-      total_points: 0
+      total_points: 0,
+      can_manage_tasks: canManageTasks
     });
   });
 
@@ -3796,6 +3838,16 @@ const renderStudentPortal = (studentId) => {
     });
   } else {
     portalTaskListEl.innerHTML = `<li style="text-align:center; padding:15px; color:var(--text-muted); width:100%;">오늘은 배정된 과제가 없습니다.</li>`;
+  }
+
+  // 과제 권한 학생에게만 관리용 버튼 노출
+  const managerActions = document.getElementById('portal-task-manager-actions');
+  if (managerActions) {
+    if (student.can_manage_tasks === true) {
+      managerActions.classList.remove('hidden');
+    } else {
+      managerActions.classList.add('hidden');
+    }
   }
 
   // [Option B] 최근 7일간의 미제출 과제 추적 (동적 대응)

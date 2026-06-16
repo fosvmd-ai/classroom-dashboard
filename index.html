@@ -741,7 +741,14 @@
       <!-- 중단: 오늘 과제 & 미제출 과제 (Option B) -->
       <section class="portal-content-grid">
         <div class="portal-card task-card">
-          <h3>오늘의 과제 수행 현황</h3>
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:8px; margin-bottom:12px;">
+            <h3 style="margin:0; border:none; padding:0;">오늘의 과제 수행 현황</h3>
+            <!-- 과제 권한 학생에게만 노출될 관리용 버튼 영역 -->
+            <div id="portal-task-manager-actions" class="hidden" style="display:flex; gap:6px;">
+              <button class="btn-success" onclick="openCreateAssignmentModal(getTodayDateString())" style="padding:4px 10px; font-size:12px; font-weight:bold; border-radius:6px; cursor:pointer; border:none; line-height:1.2;">📝 생성</button>
+              <button class="btn-danger" onclick="deleteDashboardAssignments()" style="padding:4px 10px; font-size:12px; font-weight:bold; border-radius:6px; cursor:pointer; border:none; line-height:1.2;">🗑️ 삭제</button>
+            </div>
+          </div>
           <ul id="portal-task-list" class="task-status-list">
             <!-- 동적 생성 -->
           </ul>
@@ -875,6 +882,7 @@
               <tr>
                 <th width="150px">학번/번호 (예: 01)</th>
                 <th>학생 이름</th>
+                <th width="150px">과제 관리 권한</th>
                 <th width="120px">삭제</th>
               </tr>
             </thead>
@@ -995,6 +1003,6 @@
   <!-- 오색 폭죽용 전역 가상 캔버스 -->
   <canvas id="confetti-canvas"></canvas>
 
-  <script src="app.js?v=1.0.8" defer></script>
+  <script src="app.js?v=1.0.9" defer></script>
 </body>
 </html>
