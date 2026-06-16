@@ -608,7 +608,7 @@
           
           <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
             <!-- 구글 로그인 버튼 -->
-            <button class="google-signin-btn" onclick="loginAsTeacher()">
+            <button id="btn-landing-teacher-login" class="google-signin-btn" onclick="loginAsTeacher()">
               <!-- Google Logo SVG -->
               <svg width="18" height="18" viewBox="0 0 18 18">
                 <path fill="#4285F4" d="M17.64 9.2c0-.63-.06-1.25-.16-1.84H9v3.47h4.84c-.21 1.12-.84 2.07-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.6z"/>
@@ -620,11 +620,16 @@
             </button>
             
             <!-- 구글 로그인 없이 로컬 모드 즉시 시작 링크 -->
-            <div style="text-align: center; margin-top: 2px;">
+            <div id="btn-landing-teacher-bypass" style="text-align: center; margin-top: 2px;">
               <a href="javascript:void(0)" onclick="loginLocalBypass()" style="font-size: 13px; color: #38bdf8; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; transition: color 0.2s;" onmouseover="this.style.color='#7dd3fc'" onmouseout="this.style.color='#38bdf8'">
                 🔑 구글 로그인 없이 로컬 모드로 시작하기
               </a>
             </div>
+
+            <!-- 이미 로그인된 경우 나타나는 대시보드 바로가기 버튼 -->
+            <button id="btn-landing-go-dashboard" class="google-signin-btn hidden" onclick="window.location.hash='#teacher'" style="background: linear-gradient(135deg, #10b981, #059669); border: none; color: #ffffff; font-size: 15px; font-weight: bold; padding: 14px; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3); transition: all 0.2s; width: 100%; display: flex; align-items: center; justify-content: center;">
+              💻 교사용 대시보드로 돌아가기
+            </button>
             
             <!-- 연동 모드 및 고급 설정 링크 -->
             <div style="text-align: center; margin-top: 4px;">

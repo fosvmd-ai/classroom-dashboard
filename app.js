@@ -457,6 +457,22 @@ const updateSyncStatusUI = () => {
       teacherProfileBadge.style.display = 'none';
     }
   }
+
+  // 랜딩 페이지 교사용 바로가기 제어
+  const btnLandingTeacherLogin = document.getElementById('btn-landing-teacher-login');
+  const btnLandingTeacherBypass = document.getElementById('btn-landing-teacher-bypass');
+  const btnLandingGoDashboard = document.getElementById('btn-landing-go-dashboard');
+  if (btnLandingTeacherLogin && btnLandingTeacherBypass && btnLandingGoDashboard) {
+    if (isTeacherAuthenticated()) {
+      btnLandingTeacherLogin.classList.add('hidden');
+      btnLandingTeacherBypass.classList.add('hidden');
+      btnLandingGoDashboard.classList.remove('hidden');
+    } else {
+      btnLandingTeacherLogin.classList.remove('hidden');
+      btnLandingTeacherBypass.classList.remove('hidden');
+      btnLandingGoDashboard.classList.add('hidden');
+    }
+  }
 };
 
 // 원격 데이터 수신 및 로컬 상태 적용
@@ -3957,6 +3973,14 @@ const router = () => {
       // 인증되지 않은 경우 통합 랜딩 뷰로 리다이렉트하여 교사 로그인이 보이게 함
       window.location.hash = "#landing";
     }
+  } else if (hash === "#student-login" || hash === "#landing") {
+    // 학생 수첩 조회화면 또는 통합 랜딩 뷰 명시적 진입
+    // 교사가 로그인한 상태이더라도 대시보드로 리다이렉트하지 않고 조회 화면을 보여줌
+    teacherView.classList.add('hidden');
+    studentView.classList.add('hidden');
+    if (studentLoginView) studentLoginView.classList.add('hidden');
+    if (teacherLoginView) teacherLoginView.classList.add('hidden');
+    if (landingView) landingView.classList.remove('hidden');
   } else {
     // 디폴트 메인화면: 통합 랜딩 뷰 (#landing)
     // 교사가 이미 로그인한 상태라면 대시보드로 자동 리다이렉트
@@ -3980,7 +4004,6 @@ const router = () => {
     if (landingLoginErrorEl) landingLoginErrorEl.classList.add('hidden');
   }
 };
-
 // 12-1. 학생 조회용 포털 로그인 로직 (통합 랜딩 및 레거시 지원)
 const submitStudentLogin = () => {
   const idInputEl = document.getElementById('landing-student-id') || document.getElementById('login-student-id');
