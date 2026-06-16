@@ -598,6 +598,44 @@ const initFirebaseSync = () => {
       const data = snapshot.val();
       if (data) {
         applyRemoteData(data);
+      } else {
+        console.log("[Firebase] 데이터 수신: 데이터가 없습니다 (null).");
+        isFirebaseDataLoaded = true;
+        
+        // 교사 기기이고 아직 원격 DB가 비어있는 상태라면, 로컬 상태를 기준으로 원격을 초기화
+        if (isTeacherAuthenticated() && !isSyncingFromRemote) {
+          console.log("[Firebase] 교사 권한이 감지되어 원격 데이터베이스를 로컬 데이터로 초기화합니다.");
+          dbRef.update({
+            students,
+            grades,
+            dailyLogs,
+            pointHistory,
+            config,
+            dailyAssignments,
+            absentLogs,
+            processedDeductionDates,
+            teacherPasscode,
+            dailyAnnouncements
+          }).catch(err => {
+            console.error("[Firebase] 원격 초기화 오류:", err);
+          });
+        }
+        
+        // 학생 포털 대기 상태 해제 및 렌더링
+        if (window.location.hash.startsWith('#student/')) {
+          router();
+        }
+      }
+    }, (error) => {
+      console.error("[Firebase] 데이터 수신 오류:", error);
+      const errCode = error.code || '';
+      const errStr = error.message || '';
+      const combinedErr = (errCode + " " + errStr).toLowerCase();
+      if (combinedErr.includes('permission')) {
+        window.firebasePermissionError = true;
+      }
+      if (window.location.hash.startsWith('#student/')) {
+        router();
       }
     });
     
@@ -3509,6 +3547,24 @@ const bypassFirebaseLoadingForStudent = (studentId) => {
 window.bypassFirebaseLoadingForStudent = bypassFirebaseLoadingForStudent;
 
 const renderStudentPortal = (studentId) => {
+  // 파이어베이스 데이터베이스 권한 에러(Permission Denied) 감지 시 안내 화면 노출
+  if (window.firebasePermissionError) {
+    document.getElementById('student-view').innerHTML = `
+      <div class="portal-main-layout" style="display:flex; justify-content:center; align-items:center; min-height:80vh; padding: 20px;">
+        <div class="portal-card" style="max-width:400px; width:100%; text-align:center; padding:32px; border-radius:16px; box-shadow:0 10px 25px rgba(0,0,0,0.15); background:var(--bg-card); border:1px solid var(--border-color);">
+          <div style="font-size:48px; margin-bottom:16px;">⚠️</div>
+          <h2 style="color:var(--text-main); margin-bottom:8px; font-weight:800; font-size: 20px;">서버 권한 거부됨</h2>
+          <p style="color:var(--text-muted); font-size:14px; margin-bottom:24px; line-height:1.5;">
+            데이터베이스 읽기 권한이 거부되었습니다 (Permission Denied).<br><br>
+            선생님 교사 대시보드의 파이어베이스 **규칙(Rules)** 탭에서 규칙이 공개(true)로 게시되어 있는지 확인해 주세요.
+          </p>
+          <button onclick="bypassFirebaseLoadingForStudent('${studentId}')" class="btn-secondary" style="width:100%; padding:10px; font-weight:bold; font-size:13px;">오프라인(로컬) 모드로 진입</button>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
   // 파이어베이스 동기화 모드이고 아직 데이터를 받지 못한 경우 로딩 화면 표시
   if (currentSyncMode === 'firebase' && !isFirebaseDataLoaded) {
     const isFirebaseBlocked = (typeof firebase === 'undefined');
@@ -4275,10 +4331,18 @@ const verifyStudentPortalPasscode = (studentId) => {
 const isTeacherAuthenticated = () => {
   if (currentSyncMode === 'gdrive') {
     return !!googleAccessToken;
-  } else if (currentSyncMode === 'firebase') {
+  }
+  // Electron 데스크톱 앱 내에서 구동 중이거나, 교사 비밀번호 인증 토큰이 활성화된 경우 교사로 판정
+  if (window.electronAPI && window.electronAPI.isElectron) {
+    return true;
+  }
+  if (sessionStorage.getItem('teacher_authenticated') === 'true') {
+    return true;
+  }
+  if (currentSyncMode === 'firebase') {
     return !!firebaseUser;
   }
-  return sessionStorage.getItem('teacher_authenticated') === 'true';
+  return false;
 };
 
 const loginAsTeacher = () => {
