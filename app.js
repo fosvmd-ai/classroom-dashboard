@@ -76,6 +76,9 @@ let config = JSON.parse(localStorage.getItem('config')) || {
 if (config.student_passcode === undefined) {
   config.student_passcode = "";
 }
+if (config.gridColumns === undefined) {
+  config.gridColumns = 7;
+}
 
 // 날짜별 알림장 데이터 로드 및 마이그레이션
 let dailyAnnouncements = JSON.parse(localStorage.getItem('dailyAnnouncements')) || {};
@@ -1840,12 +1843,24 @@ const renderTeacherDashboard = () => {
   const unsubmittedEl = document.getElementById('unsubmitted-container');
   const btnAllDeduct = document.getElementById('btn-all-unsubmitted-deduct');
   
+  // 배치 조절 셀렉트 박스 동기화
+  const gridSelect = document.getElementById('grid-columns-select');
+  if (gridSelect) {
+    gridSelect.value = String(config.gridColumns || 7);
+  }
+
   const todayStr = currentDashboardDate;
   const todayLogs = dailyLogs[todayStr] || {};
   const todayTasks = dailyAssignments[todayStr] || [];
 
   if (currentDashboardViewMode === 'students') {
-    if (gridEl) gridEl.classList.remove('hidden');
+    if (gridEl) {
+      gridEl.classList.remove('hidden');
+      // 설정된 열 개수에 맞춰 클래스 교체
+      const cols = config.gridColumns || 7;
+      gridEl.classList.remove('cols-4', 'cols-5', 'cols-6', 'cols-7', 'cols-8');
+      gridEl.classList.add(`cols-${cols}`);
+    }
     if (unsubmittedEl) unsubmittedEl.classList.add('hidden');
     if (btnAllDeduct) btnAllDeduct.classList.add('hidden');
     
@@ -5152,6 +5167,14 @@ window.setBatchTemplate = setBatchTemplate;
 window.applyBatchPoints = applyBatchPoints;
 window.toggleFbAdvancedFields = toggleFbAdvancedFields;
 window.loginAsTeacher = loginAsTeacher;
+
+const changeGridColumns = (value) => {
+  const cols = parseInt(value, 10) || 7;
+  config.gridColumns = cols;
+  saveData();
+  renderTeacherDashboard();
+};
+window.changeGridColumns = changeGridColumns;
 
 const handleTeacherLogout = () => {
   sessionStorage.removeItem('teacher_authenticated');
