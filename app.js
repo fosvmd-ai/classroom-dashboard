@@ -272,11 +272,38 @@ const changeSyncMode = (mode) => {
   location.reload();
 };
 
+
 // 구글 드라이브 & 파이어베이스 연동 상태 UI 업데이트
 const updateSyncStatusUI = () => {
   const statusBadge = document.getElementById('sync-status-badge');
   const statusText = document.getElementById('sync-status-text');
   const btnHeaderSync = document.getElementById('btn-header-sync');
+  
+  const headerIndicator = document.querySelector('.server-badge .status-indicator');
+  const headerIpAddress = document.getElementById('ip-address');
+  
+  if (headerIndicator && headerIpAddress) {
+    if (currentSyncMode === 'firebase') {
+      if (dbRef) {
+        headerIndicator.className = 'status-indicator online';
+        headerIpAddress.innerText = '실시간 동기화 중';
+      } else {
+        headerIndicator.className = 'status-indicator waiting';
+        headerIpAddress.innerText = '파이어베이스 대기';
+      }
+    } else if (currentSyncMode === 'gdrive') {
+      if (googleAccessToken) {
+        headerIndicator.className = 'status-indicator online';
+        headerIpAddress.innerText = '드라이브 동기화 중';
+      } else {
+        headerIndicator.className = 'status-indicator waiting';
+        headerIpAddress.innerText = '드라이브 대기';
+      }
+    } else {
+      headerIndicator.className = 'status-indicator local';
+      headerIpAddress.innerText = '로컬 작동 중 (오프라인)';
+    }
+  }
   
   // 동기화 모드 셀렉터 동기화
   const modeSelector = document.getElementById('sync-mode-selector');

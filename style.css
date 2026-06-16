@@ -208,6 +208,21 @@ body {
   box-shadow: 0 0 10px var(--success-color);
 }
 
+.status-indicator.offline {
+  background-color: #ef4444;
+  box-shadow: 0 0 10px #ef4444;
+}
+
+.status-indicator.waiting {
+  background-color: #f59e0b;
+  box-shadow: 0 0 10px #f59e0b;
+}
+
+.status-indicator.local {
+  background-color: #94a3b8;
+  box-shadow: 0 0 10px #94a3b8;
+}
+
 /* ==========================================================================
    Tab Navigation Menu
    ========================================================================== */
