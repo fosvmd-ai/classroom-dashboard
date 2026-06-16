@@ -561,6 +561,7 @@ const applyRemoteData = (data) => {
       }
     }
     updateWeeklyLeaderboard();
+    renderApprovalRequestsWidget(); // 실시간 데이터 수신 시 결재 요청 목록 동적 리렌더링
   } else if (hash.startsWith('#student/')) {
     router(); // 학생 수첩 리렌더링
   }
@@ -3581,9 +3582,9 @@ const renderStudentPortal = (studentId) => {
   if (todayTasks.length > 0) {
     todayTasks.forEach(task => {
       const isComplete = studentLog[task.id] === true;
-      const isPending = (pendingRequests[todayStr] && 
-                         pendingRequests[todayStr][student.student_id] && 
-                         pendingRequests[todayStr][student.student_id][task.id] === true);
+      const isPending = !!(pendingRequests[todayStr] && 
+                           pendingRequests[todayStr][student.student_id] && 
+                           pendingRequests[todayStr][student.student_id][task.id]);
       
       const li = document.createElement('li');
       li.style.display = 'flex';
@@ -3598,7 +3599,7 @@ const renderStudentPortal = (studentId) => {
       } else if (isPending) {
         statusHtml = `<span class="portal-task-status-pending">⏳ 승인 대기 중</span>`;
       } else {
-        statusHtml = `<button class="btn-portal-request" onclick="requestTaskApproval('${student.student_id}', '${task.id}', '${task.name}')">✔️ 완료 요청</button>`;
+        statusHtml = `<button class="btn-portal-request" onclick="requestTaskApproval('${student.student_id}', '${task.id}', '${task.name}', null, ${task.points})">✔️ 완료 요청</button>`;
       }
       
       li.innerHTML = `<span style="font-weight:bold; color:var(--text-main);">${task.name}</span> ${statusHtml}`;
@@ -3630,14 +3631,15 @@ const renderStudentPortal = (studentId) => {
       tasksForDay.forEach(task => {
         // 해당 과제가 제출되지 않은 경우
         if (studentLogForDay[task.id] !== true) {
-          const isPending = (pendingRequests[checkDateKey] && 
-                             pendingRequests[checkDateKey][student.student_id] && 
-                             pendingRequests[checkDateKey][student.student_id][task.id] === true);
+          const isPending = !!(pendingRequests[checkDateKey] && 
+                               pendingRequests[checkDateKey][student.student_id] && 
+                               pendingRequests[checkDateKey][student.student_id][task.id]);
           outstanding.push({
             dateKey: checkDateKey,
             taskId: task.id,
             date: `${month}월 ${dateStr}일`,
             task_name: task.name,
+            points: task.points,
             is_pending: isPending
           });
         }
@@ -3659,7 +3661,7 @@ const renderStudentPortal = (studentId) => {
       if (item.is_pending) {
         statusHtml = `<span class="portal-task-status-pending" style="font-size: 11px; padding: 2px 6px;">⏳ 승인 대기 중</span>`;
       } else {
-        statusHtml = `<button class="btn-portal-request" style="font-size: 11px; padding: 4px 8px;" onclick="requestTaskApproval('${student.student_id}', '${item.taskId}', '${item.task_name}', '${item.dateKey}')">✔️ 완료 요청</button>`;
+        statusHtml = `<button class="btn-portal-request" style="font-size: 11px; padding: 4px 8px;" onclick="requestTaskApproval('${student.student_id}', '${item.taskId}', '${item.task_name}', '${item.dateKey}', ${item.points || 3})">✔️ 완료 요청</button>`;
       }
       
       div.innerHTML = `<span style="font-size: 14px; font-weight: bold; color: var(--text-main);">${item.is_pending ? '⏳' : '🔴'} [${item.date}] - ${item.task_name}</span> ${statusHtml}`;
@@ -3702,7 +3704,7 @@ const renderStudentPortal = (studentId) => {
   });
 };
 
-const requestTaskApproval = (studentId, taskId, taskName, dateKey) => {
+const requestTaskApproval = (studentId, taskId, taskName, dateKey, points) => {
   const targetDate = dateKey || getTodayDateString();
   if (!pendingRequests[targetDate]) {
     pendingRequests[targetDate] = {};
@@ -3711,22 +3713,35 @@ const requestTaskApproval = (studentId, taskId, taskName, dateKey) => {
     pendingRequests[targetDate][studentId] = {};
   }
   
-  pendingRequests[targetDate][studentId][taskId] = true;
+  const reqObj = {
+    requested: true,
+    taskName: taskName,
+    points: points || 3
+  };
+  pendingRequests[targetDate][studentId][taskId] = reqObj;
   
   // 로컬 저장
   localStorage.setItem('pendingRequests', JSON.stringify(pendingRequests));
   
+  const showSuccess = () => {
+    playAudioEffect('coin');
+    alert(`📥 '${taskName}' 과제 완료 승인 요청이 교사 대시보드로 전송되었습니다!`);
+    renderStudentPortal(studentId);
+  };
+  
   // 파이어베이스 동기화 모드 시 개별 경로 원자적 갱신으로 동시성 보장
   if (currentSyncMode === 'firebase' && dbRef) {
-    dbRef.child('pendingRequests').child(targetDate).child(studentId).child(taskId).set(true)
+    dbRef.child('pendingRequests').child(targetDate).child(studentId).child(taskId).set(reqObj)
+      .then(() => {
+        showSuccess();
+      })
       .catch(err => {
         console.error("[Firebase] 완료 요청 업로드 실패:", err);
+        alert(`❌ 과제 승인 요청 전송에 실패했습니다: ${err.message}\n인터넷 연결을 확인하고 다시 시도해 주세요.`);
       });
+  } else {
+    showSuccess();
   }
-  
-  playAudioEffect('coin');
-  alert(`📥 '${taskName}' 과제 완료 승인 요청이 교사 대시보드로 전송되었습니다!`);
-  renderStudentPortal(studentId);
 };
 
 const renderApprovalRequestsWidget = () => {
@@ -3740,21 +3755,27 @@ const renderApprovalRequestsWidget = () => {
   const requests = [];
   Object.entries(pendingRequests).forEach(([dateKey, dateObj]) => {
     Object.entries(dateObj).forEach(([studentId, taskObj]) => {
-      Object.entries(taskObj).forEach(([taskId, requested]) => {
-        if (requested === true) {
+      Object.entries(taskObj).forEach(([taskId, val]) => {
+        // 하위 호환성: val이 true이거나 객체 형태의 { requested: true }인 경우
+        const isRequested = val === true || (val && (val.requested === true || val === 'true'));
+        if (isRequested) {
           // Find student and task information
           const student = students.find(s => s.student_id === studentId);
           const dayTasks = dailyAssignments[dateKey] || [];
           const task = dayTasks.find(t => t.id === taskId);
           
-          if (student && task) {
+          // 메타데이터가 있으면 우선 사용, 없으면 과제 데이터에서 가져오고 최후에는 기본값 사용
+          const finalTaskName = (val && typeof val === 'object' && val.taskName) || (task ? task.name : `알 수 없는 과제 (${taskId})`);
+          const finalPoints = (val && typeof val === 'object' && typeof val.points === 'number') ? val.points : (task ? task.points : 3);
+          
+          if (student) {
             requests.push({
               dateKey,
               studentId,
               studentName: student.name,
               taskId,
-              taskName: task.name,
-              points: task.points
+              taskName: finalTaskName,
+              points: finalPoints
             });
           }
         }
