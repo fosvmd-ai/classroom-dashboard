@@ -99,6 +99,9 @@ function createWindow(port) {
 
 // 3. 앱 라이프사이클 핸들링
 app.whenReady().then(() => {
+  // Google OAuth 로그인 차단 우회를 위한 전역 User-Agent 설정
+  app.userAgentFallback = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+  
   startLocalServer((port) => {
     createWindow(port);
   });
