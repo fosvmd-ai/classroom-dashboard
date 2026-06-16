@@ -3741,7 +3741,12 @@ const requestTaskApproval = (studentId, taskId, taskName, dateKey, points) => {
       })
       .catch(err => {
         console.error("[Firebase] 완료 요청 업로드 실패:", err);
-        alert(`❌ 과제 승인 요청 전송에 실패했습니다: ${err.message}\n인터넷 연결을 확인하고 다시 시도해 주세요.`);
+        const errStr = err.message || '';
+        if (errStr.includes('permission_denied') || errStr.toLowerCase().includes('permission denied')) {
+          alert(`❌ 과제 승인 요청 전송에 실패했습니다: 권한 없음 (Permission Denied)\n\n교사 대시보드 설정에서 개인 파이어베이스 서버를 생성해 연동하셔야 합니다.\n\n[조치 방법]\n1. 본인의 Firebase 콘솔에서 Realtime Database를 생성합니다.\n2. 규칙(Rules) 탭에서 ".read": true, ".write": true 로 변경하여 공개합니다.\n3. 교사 대시보드 '⚙️ 기본설정' 탭에서 개인 파이어베이스 주소 및 API 키를 입력하여 저장해 주세요.`);
+        } else {
+          alert(`❌ 과제 승인 요청 전송에 실패했습니다: ${err.message}\n인터넷 연결을 확인하고 다시 시도해 주세요.`);
+        }
       });
   } else {
     showSuccess(false);
