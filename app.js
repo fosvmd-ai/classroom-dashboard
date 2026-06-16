@@ -2451,6 +2451,47 @@ const deleteCurrentDayAssignments = () => {
   }
 };
 
+// [신규] 메인 대시보드 화면에서 현재 날짜의 과제판을 완전히 삭제
+const deleteDashboardAssignments = () => {
+  const dateKey = currentDashboardDate;
+  const tasks = dailyAssignments[dateKey] || [];
+  
+  if (tasks.length === 0) {
+    alert("선택된 날짜에 삭제할 과제가 없습니다.");
+    return;
+  }
+  
+  if (confirm(`⚠️ 정말로 ${dateKey}의 모든 과제판 데이터를 삭제하시겠습니까?\n모든 학생의 당일 완료 기록과 점수가 복원 및 차감됩니다.`)) {
+    // 1. 점수 롤백 처리
+    students.forEach(s => {
+      let netPointsChanged = 0;
+      pointHistory.forEach(log => {
+        if (log.student_id === s.student_id && isAssignmentLog(log, dateKey, tasks)) {
+          netPointsChanged += log.points_changed;
+        }
+      });
+      if (netPointsChanged !== 0) {
+        s.total_points = Math.max(0, (s.total_points || 0) - netPointsChanged);
+      }
+    });
+
+    // 2. 히스토리 삭제
+    pointHistory = pointHistory.filter(log => !isAssignmentLog(log, dateKey, tasks));
+
+    // 3. 스토리지 삭제
+    delete dailyAssignments[dateKey];
+    delete dailyLogs[dateKey];
+    
+    // 4. 저장 및 갱신
+    saveData();
+    updateWeeklyLeaderboard();
+    
+    alert(`${dateKey} 과제판이 삭제되었습니다.`);
+    renderTeacherDashboard();
+  }
+};
+window.deleteDashboardAssignments = deleteDashboardAssignments;
+
 // ==========================================================================
 // [전면개편] 일자별 상세 학생 과제 체크 렌더링 (동적 필드 렌더링)
 // ==========================================================================

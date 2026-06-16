@@ -96,6 +96,7 @@
               <input type="date" id="dashboard-date-picker" onchange="changeDashboardDate(this.value)" style="padding:6px 12px; font-size:14px; border:1px solid #cbd5e1; border-radius:var(--radius-sm); outline:none; font-family:var(--font-main); background-color:white; color:var(--text-main);">
               <button class="btn-secondary" style="padding:6px 12px; font-size:13px; font-weight:bold; border-radius:var(--radius-sm);" onclick="resetDashboardDateToToday()">오늘로</button>
               <button class="btn-success" style="padding:6px 12px; font-size:13px; font-weight:bold; border-radius:var(--radius-sm);" onclick="openCreateAssignmentModal(currentDashboardDate)">📝 과제 생성</button>
+              <button class="btn-danger" style="padding:6px 12px; font-size:13px; font-weight:bold; border-radius:var(--radius-sm);" onclick="deleteDashboardAssignments()">🗑️ 과제 삭제</button>
               <button id="btn-all-unsubmitted-deduct" class="btn-danger hidden" style="padding:6px 12px; font-size:13px; font-weight:bold; border-radius:var(--radius-sm);" onclick="allUnsubmittedDeduct(currentDashboardDate)">📉 전체 미제출 감점</button>
             </div>
           </div>
@@ -994,6 +995,6 @@
   <!-- 오색 폭죽용 전역 가상 캔버스 -->
   <canvas id="confetti-canvas"></canvas>
 
-  <script src="app.js?v=1.0.7" defer></script>
+  <script src="app.js?v=1.0.8" defer></script>
 </body>
 </html>
