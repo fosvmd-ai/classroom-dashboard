@@ -40,6 +40,7 @@ const EMOJI_PRESETS = [
 ];
 
 // 시간/날짜 도출 함수
+// 시간/날짜 도출 함수
 const getTodayDateString = () => {
   const d = new Date();
   const year = d.getFullYear();
@@ -48,14 +49,42 @@ const getTodayDateString = () => {
   return `${year}-${month}-${date}`;
 };
 
+// 날짜 포맷팅 헬퍼 (예: 2026-06-15 -> 2026년 6월 15일 (월요일))
+const formatKoreanDate = (dateStr) => {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  const year = parts[0];
+  const month = parseInt(parts[1], 10);
+  const day = parseInt(parts[2], 10);
+  
+  const d = new Date(year, month - 1, day);
+  const weekdays = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+  const dayOfWeek = weekdays[d.getDay()];
+  
+  return `${year}년 ${month}월 ${day}일 (${dayOfWeek})`;
+};
+
 // 기본 데이터 로드
 let students = JSON.parse(localStorage.getItem('students')) || DEFAULT_STUDENTS;
 let grades = JSON.parse(localStorage.getItem('grades')) || DEFAULT_GRADES;
 let dailyLogs = JSON.parse(localStorage.getItem('dailyLogs')) || {};
 let pointHistory = JSON.parse(localStorage.getItem('pointHistory')) || [];
 let config = JSON.parse(localStorage.getItem('config')) || {
-  today_announcement: "금요일 수학 3단원 단원평가 준비물(자, 연필, 지우개) 챙기기!\n주제 글쓰기 주제는 '내가 좋아하는 계절'입니다."
+  today_announcement: "금요일 수학 3단원 단원평가 준비물(자, 연필, 지우개) 챙기기!\n주제 글쓰기 주제는 '내가 좋아하는 계절'입니다.",
+  student_passcode: ""
 };
+if (config.student_passcode === undefined) {
+  config.student_passcode = "";
+}
+
+// 날짜별 알림장 데이터 로드 및 마이그레이션
+let dailyAnnouncements = JSON.parse(localStorage.getItem('dailyAnnouncements')) || {};
+let currentAnnouncementDate = getTodayDateString();
+let currentPortalAnnouncementDate = getTodayDateString();
+
+if (Object.keys(dailyAnnouncements).length === 0 && config.today_announcement) {
+  dailyAnnouncements[getTodayDateString()] = config.today_announcement;
+}
 
 // [개선] 날짜별 과제 설정을 별도 보관하는 스토리지 로드
 let dailyAssignments = JSON.parse(localStorage.getItem('dailyAssignments')) || {};
@@ -143,8 +172,15 @@ const saveData = () => {
   localStorage.setItem('absentLogs', JSON.stringify(absentLogs));
   localStorage.setItem('processedDeductionDates', JSON.stringify(processedDeductionDates));
   localStorage.setItem('teacherPasscode', String(teacherPasscode));
+  localStorage.setItem('dailyAnnouncements', JSON.stringify(dailyAnnouncements));
 
   if (isSyncingFromRemote) return;
+
+  // 보안 강화: 학생 기기(비인증 상태)는 전체 원격 데이터 동기화를 차단하여 덮어쓰기 방지
+  if (!isTeacherAuthenticated()) {
+    console.log("[Sync Security] 비인증 기기의 전체 원격 저장 차단");
+    return;
+  }
 
   // 구글 드라이브 동기화 모드
   if (currentSyncMode === 'gdrive' && googleAccessToken && googleDriveFileId) {
@@ -158,17 +194,18 @@ const saveData = () => {
 
   // 파이어베이스 동기화 모드
   if (currentSyncMode === 'firebase' && dbRef) {
-    dbRef.set({
+    // 동시성 개선: set 대신 update를 사용하고 pendingRequests는 학생 개별 업로드로만 제어하여 덮어쓰기 방지
+    dbRef.update({
       students,
       grades,
       dailyLogs,
       pointHistory,
       config,
       dailyAssignments,
-      pendingRequests,
       absentLogs,
       processedDeductionDates,
-      teacherPasscode
+      teacherPasscode,
+      dailyAnnouncements
     }).catch(err => {
       console.error("[Firebase] 백그라운드 자동 업로드 실패:", err);
     });
@@ -439,6 +476,7 @@ const applyRemoteData = (data) => {
   absentLogs = data.absentLogs || {};
   processedDeductionDates = data.processedDeductionDates || [];
   teacherPasscode = data.teacherPasscode || '1234';
+  dailyAnnouncements = data.dailyAnnouncements || dailyAnnouncements;
   
   // 로컬 localStorage에도 영구 보존
   localStorage.setItem('students', JSON.stringify(students));
@@ -451,6 +489,7 @@ const applyRemoteData = (data) => {
   localStorage.setItem('absentLogs', JSON.stringify(absentLogs));
   localStorage.setItem('processedDeductionDates', JSON.stringify(processedDeductionDates));
   localStorage.setItem('teacherPasscode', String(teacherPasscode));
+  localStorage.setItem('dailyAnnouncements', JSON.stringify(dailyAnnouncements));
   
   isSyncingFromRemote = false;
   
@@ -1553,6 +1592,10 @@ const getWeekdaysBetween = (startDateStr, endDateStr) => {
 
 // 미제출 과제에 대한 일일 자동 감점 처리 (평일 기준, 결석생 하루 유예 적용)
 const processAutoDeductions = () => {
+  // 보안 및 권한 설정: 교사로 로그인/인증된 브라우저가 아닐 경우 실행을 방지
+  if (!isTeacherAuthenticated()) {
+    return;
+  }
   const todayStr = getTodayDateString();
   
   const assignmentDates = Object.keys(dailyAssignments).sort();
@@ -1839,7 +1882,16 @@ const renderTeacherDashboard = () => {
   const picker = document.getElementById('dashboard-date-picker');
   if (picker) picker.value = currentDashboardDate;
 
-  document.getElementById('announcement-content').innerText = config.today_announcement;
+  const announceDateDisplay = document.getElementById('announcement-date-display');
+  const announceDateInput = document.getElementById('announcement-date-input');
+  if (announceDateInput) announceDateInput.value = currentAnnouncementDate;
+  if (announceDateDisplay) announceDateDisplay.innerText = formatKoreanDate(currentAnnouncementDate);
+
+  const announceText = dailyAnnouncements[currentAnnouncementDate] || "";
+  const announceContentEl = document.getElementById('announcement-content');
+  if (announceContentEl && document.activeElement !== announceContentEl) {
+    announceContentEl.innerText = announceText;
+  }
   updateWeeklyLeaderboard();
   updateClassProgress();
   renderApprovalRequestsWidget();
@@ -1981,17 +2033,27 @@ const renderCalendar = () => {
     
     dayCell.className = cellClass;
     
-    // [개선] 과제가 설정되어 있지 않다면 클릭 시 생성 팝업(Modal) 연동
+    // 과제판이 존재하거나 알림장이 작성되어 있다면 바로 상세조회로 이동
+    // 둘 다 없다면 과제 생성 팝업(Modal) 연동
     dayCell.onclick = () => {
-      if (tasks.length > 0) {
+      const hasAnnounce = !!dailyAnnouncements[dateKey];
+      if (tasks.length > 0 || hasAnnounce) {
         showDateDetail(dateKey);
       } else {
         openCreateAssignmentModal(dateKey);
       }
     };
 
+    const announceText = dailyAnnouncements[dateKey];
+    let announceHtml = "";
+    if (announceText) {
+      const shortText = announceText.replace(/\n/g, ' ').substring(0, 12) + (announceText.length > 12 ? '...' : '');
+      announceHtml = `<div class="calendar-announce-badge" style="font-size: 11px; margin-top: 4px; color: #713f12; background: #fffdf0; padding: 2px 6px; border-radius: 4px; border: 1px solid #fde047; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; font-weight: bold;" title="${announceText.replace(/"/g, '&quot;')}">📢 ${shortText}</div>`;
+    }
+
     dayCell.innerHTML = `
       <span class="day-number">${day}</span>
+      ${announceHtml}
       ${statsHtml}
     `;
 
@@ -2291,6 +2353,12 @@ const showDateDetail = (dateKey) => {
   const formattedTitle = `${parsedDate.getFullYear()}년 ${parsedDate.getMonth() + 1}월 ${parsedDate.getDate()}일 과제 수행 상세`;
   document.getElementById('detail-date-title').innerText = formattedTitle;
 
+  // 알림장 텍스트 바인딩
+  const detailAnnounceEl = document.getElementById('records-detail-announcement-content');
+  if (detailAnnounceEl) {
+    detailAnnounceEl.innerText = dailyAnnouncements[dateKey] || "";
+  }
+
   renderDailyRecordsTable();
 };
 
@@ -2442,6 +2510,96 @@ const renderRosterPointsManager = () => {
   
   // 검색 및 필터 상태 반영
   filterRosterList();
+  renderPointHistoryDatabase();
+};
+
+const renderPointHistoryDatabase = () => {
+  const tableBody = document.getElementById('history-database-table-body');
+  if (!tableBody) return;
+  tableBody.innerHTML = '';
+
+  // Sort pointHistory by timestamp desc
+  const sortedHistory = [...pointHistory].sort((a, b) => {
+    return new Date(b.timestamp) - new Date(a.timestamp);
+  });
+
+  const totalCountEl = document.getElementById('history-total-count');
+  if (totalCountEl) {
+    totalCountEl.innerText = sortedHistory.length;
+  }
+
+  if (sortedHistory.length === 0) {
+    tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding: 20px;">점수 변동 내역이 아직 없습니다.</td></tr>`;
+    return;
+  }
+
+  sortedHistory.forEach(log => {
+    const student = students.find(s => s.student_id === log.student_id);
+    const studentName = student ? student.name : "삭제된 학생";
+    const change = log.points_changed;
+    const isPositive = change > 0;
+    const sign = isPositive ? "+" : "";
+    const badgeClass = isPositive ? "positive" : "negative";
+    
+    // Formatting date
+    const d = new Date(log.timestamp);
+    const dateFormatted = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+
+    const tr = document.createElement('tr');
+    tr.dataset.studentId = log.student_id;
+    tr.dataset.studentName = studentName.toLowerCase();
+    tr.dataset.reason = (log.reason || "").toLowerCase();
+    tr.dataset.isPositive = isPositive ? "true" : "false";
+
+    tr.innerHTML = `
+      <td style="color:var(--text-muted); font-family: monospace;">${dateFormatted}</td>
+      <td>${log.student_id}</td>
+      <td style="font-weight:bold; color:var(--text-main);">${studentName}</td>
+      <td>
+        <span class="points-badge ${badgeClass}" style="display:inline-block; font-size:11px; padding:2px 8px; border-radius:10px; font-weight:bold;">${sign}${change}점</span>
+      </td>
+      <td style="text-align:left; font-weight:500; padding-left:12px;">${log.reason}</td>
+    `;
+    tableBody.appendChild(tr);
+  });
+};
+
+const filterPointHistoryTable = () => {
+  const searchStudent = document.getElementById('history-search-student').value.trim().toLowerCase();
+  const searchReason = document.getElementById('history-search-reason').value.trim().toLowerCase();
+  const typeFilter = document.getElementById('history-filter-type').value;
+
+  const rows = document.querySelectorAll('#history-database-table-body tr');
+  let visibleCount = 0;
+
+  rows.forEach(row => {
+    // Skip empty row
+    if (row.cells.length === 1) return;
+
+    const studentId = row.dataset.studentId || "";
+    const studentName = row.dataset.studentName || "";
+    const reason = row.dataset.reason || "";
+    const isPositive = row.dataset.isPositive === "true";
+
+    const matchStudent = !searchStudent || studentId.includes(searchStudent) || studentName.includes(searchStudent);
+    const matchReason = !searchReason || reason.includes(searchReason);
+    
+    let matchType = true;
+    if (typeFilter === 'positive') matchType = isPositive;
+    else if (typeFilter === 'negative') matchType = !isPositive;
+
+    if (matchStudent && matchReason && matchType) {
+      row.classList.remove('hidden');
+      visibleCount++;
+    } else {
+      row.classList.add('hidden');
+    }
+  });
+
+  const totalCountEl = document.getElementById('history-total-count');
+  if (totalCountEl) {
+    totalCountEl.innerText = visibleCount;
+  }
 };
 
 // 7-1-A. 수동 점수 1점단위 즉시 가감 버튼 헬퍼
@@ -2870,13 +3028,18 @@ const saveRoster = () => {
   let valid = true;
 
   rows.forEach(row => {
-    const idInput = row.querySelector('.roster-id-input').value.trim();
+    let idInput = row.querySelector('.roster-id-input').value.trim();
     const nameInput = row.querySelector('.roster-name-input').value.trim();
 
     if (!idInput || !nameInput) {
       alert("학번과 이름은 빈칸일 수 없습니다.");
       valid = false;
       return;
+    }
+
+    // 번호 한 자리 입력 자동 보정 (예: 5 -> 05)
+    if (idInput.length === 1 && !isNaN(idInput)) {
+      idInput = idInput.padStart(2, '0');
     }
 
     if (idSet.has(idInput)) {
@@ -2955,10 +3118,14 @@ const renderGradesConfig = () => {
     tableBody.appendChild(tr);
   });
 
-  // 교사용 비밀번호 입력칸에 현재 비밀번호 동기화
+  // 교사용 및 학생용 비밀번호 입력칸 동기화
   const passcodeEl = document.getElementById('teacher-passcode-input');
   if (passcodeEl) {
     passcodeEl.value = teacherPasscode;
+  }
+  const studentPasscodeEl = document.getElementById('student-passcode-input');
+  if (studentPasscodeEl) {
+    studentPasscodeEl.value = config.student_passcode || "";
   }
 };
 
@@ -3287,15 +3454,47 @@ const renderStudentPortal = (studentId) => {
     return;
   }
 
+  // 학생용 비밀번호 검증
+  const verified = sessionStorage.getItem('student_portal_verified_' + studentId) === 'true';
+  const needPasscode = config.student_passcode && config.student_passcode.trim() !== "";
+  
+  if (needPasscode && !verified) {
+    document.getElementById('student-view').innerHTML = `
+      <div class="portal-main-layout" style="display:flex; justify-content:center; align-items:center; min-height:80vh; padding: 20px;">
+        <div class="portal-card" style="max-width:400px; width:100%; text-align:center; padding:32px; border-radius:16px; box-shadow:0 10px 25px rgba(0,0,0,0.15); background:var(--bg-card); border:1px solid var(--border-color);">
+          <div style="font-size:48px; margin-bottom:16px;">🔑</div>
+          <h2 style="color:var(--text-main); margin-bottom:8px; font-weight:800; font-size: 22px;">학생 포털 보안 확인</h2>
+          <p style="color:var(--text-muted); font-size:14px; margin-bottom:24px; line-height:1.5;">선생님이 설정한 학급 학생 비밀번호를 입력해주세요.</p>
+          
+          <div style="display:flex; flex-direction:column; gap:16px; text-align:left; margin-bottom:20px;">
+            <input type="password" id="student-portal-verify-input" placeholder="비밀번호 입력" onkeydown="if(event.key === 'Enter') verifyStudentPortalPasscode('${studentId}')" style="width:100%; padding:12px; font-size:16px; border:1px solid var(--border-color); border-radius:8px; outline:none; text-align:center; background:var(--bg-card); color:var(--text-main);">
+            <p id="student-portal-verify-error" style="color:var(--danger-color); font-size:13px; font-weight:bold; text-align:center; margin:0;" class="hidden">⚠️ 비밀번호가 일치하지 않습니다.</p>
+          </div>
+          
+          <div style="display:flex; gap:10px;">
+            <button onclick="goBackToTeacherDashboard()" class="btn-secondary" style="flex:1; padding:12px; font-weight:bold;">홈으로</button>
+            <button onclick="verifyStudentPortalPasscode('${studentId}')" class="btn-primary" style="flex:2; padding:12px; font-weight:bold; background:#6366f1; border-color:#4f46e5;">확인</button>
+          </div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
   document.getElementById('portal-student-title').innerText = `🛡️ ${student.student_id}번 ${student.name} 학생의 신용수첩`;
   document.getElementById('portal-points').innerText = `${student.total_points}점`;
 
   const grade = evaluateGrade(student.total_points);
   document.getElementById('portal-grade-name').innerText = grade.name;
 
+  const portalAnnounceDateDisplay = document.getElementById('portal-announcement-date-display');
+  const portalAnnounceDateInput = document.getElementById('portal-announcement-date-input');
+  if (portalAnnounceDateInput) portalAnnounceDateInput.value = currentPortalAnnouncementDate;
+  if (portalAnnounceDateDisplay) portalAnnounceDateDisplay.innerText = formatKoreanDate(currentPortalAnnouncementDate);
+
   const portalAnnounceEl = document.getElementById('portal-announcement-content');
   if (portalAnnounceEl) {
-    portalAnnounceEl.innerText = config.today_announcement || "알림장이 없습니다.";
+    portalAnnounceEl.innerText = dailyAnnouncements[currentPortalAnnouncementDate] || "알림장이 없습니다.";
   }
   
   const iconEl = document.getElementById('portal-grade-icon');
@@ -3453,7 +3652,17 @@ const requestTaskApproval = (studentId, taskId, taskName, dateKey) => {
   }
   
   pendingRequests[targetDate][studentId][taskId] = true;
-  saveData();
+  
+  // 로컬 저장
+  localStorage.setItem('pendingRequests', JSON.stringify(pendingRequests));
+  
+  // 파이어베이스 동기화 모드 시 개별 경로 원자적 갱신으로 동시성 보장
+  if (currentSyncMode === 'firebase' && dbRef) {
+    dbRef.child('pendingRequests').child(targetDate).child(studentId).child(taskId).set(true)
+      .catch(err => {
+        console.error("[Firebase] 완료 요청 업로드 실패:", err);
+      });
+  }
   
   playAudioEffect('coin');
   alert(`📥 '${taskName}' 과제 완료 승인 요청이 교사 대시보드로 전송되었습니다!`);
@@ -3568,6 +3777,13 @@ const approveTaskRequest = (studentId, dateKey, taskId, taskName, points) => {
       delete pendingRequests[dateKey];
     }
   }
+
+  // 파이어베이스 동기화 모드 시 개별 경로 원자적 제거로 동시성 보장
+  if (currentSyncMode === 'firebase' && dbRef) {
+    dbRef.child('pendingRequests').child(dateKey).child(studentId).child(taskId).remove().catch(err => {
+      console.error("[Firebase] 승인 요청 삭제 실패:", err);
+    });
+  }
   
   saveData();
   playAudioEffect('chime');
@@ -3586,6 +3802,13 @@ const rejectTaskRequest = (studentId, dateKey, taskId, taskName) => {
     if (Object.keys(pendingRequests[dateKey]).length === 0) {
       delete pendingRequests[dateKey];
     }
+  }
+
+  // 파이어베이스 동기화 모드 시 개별 경로 원자적 제거로 동시성 보장
+  if (currentSyncMode === 'firebase' && dbRef) {
+    dbRef.child('pendingRequests').child(dateKey).child(studentId).child(taskId).remove().catch(err => {
+      console.error("[Firebase] 승인 요청 삭제 실패:", err);
+    });
   }
   
   saveData();
@@ -3706,7 +3929,14 @@ const router = () => {
   const landingView = document.getElementById('landing-view');
 
   if (hash.startsWith("#student/")) {
-    const studentId = hash.split("/")[1];
+    let studentId = hash.split("/")[1];
+    
+    // 번호 한 자리 입력 자동 보정 (예: 1 -> 01) 후 리다이렉트
+    if (studentId.length === 1 && !isNaN(studentId)) {
+      studentId = studentId.padStart(2, '0');
+      window.location.hash = `student/${studentId}`;
+      return;
+    }
     
     teacherView.classList.add('hidden');
     if (studentLoginView) studentLoginView.classList.add('hidden');
@@ -3856,6 +4086,32 @@ const saveTeacherPasscode = () => {
   alert("🔒 교사용 비밀번호가 성공적으로 변경되었습니다!");
 };
 
+const saveStudentPasscode = () => {
+  const input = document.getElementById('student-passcode-input');
+  if (!input) return;
+  const val = input.value.trim();
+  config.student_passcode = val;
+  saveData();
+  alert("🔒 학생용 공통 비밀번호가 성공적으로 변경되었습니다!");
+};
+
+const verifyStudentPortalPasscode = (studentId) => {
+  const input = document.getElementById('student-portal-verify-input');
+  const errorEl = document.getElementById('student-portal-verify-error');
+  if (!input) return;
+  
+  const val = input.value.trim();
+  if (val === (config.student_passcode || "").trim()) {
+    sessionStorage.setItem('student_portal_verified_' + studentId, 'true');
+    renderStudentPortal(studentId);
+  } else {
+    if (errorEl) errorEl.classList.remove('hidden');
+    input.value = "";
+    input.focus();
+    playAudioEffect('buzz');
+  }
+};
+
 const isTeacherAuthenticated = () => {
   if (currentSyncMode === 'gdrive') {
     return !!googleAccessToken;
@@ -3940,7 +4196,8 @@ const exportClassroomData = () => {
     pendingRequests: JSON.parse(localStorage.getItem('pendingRequests')) || {},
     absentLogs: JSON.parse(localStorage.getItem('absentLogs')) || {},
     processedDeductionDates: JSON.parse(localStorage.getItem('processedDeductionDates')) || [],
-    teacherPasscode: localStorage.getItem('teacherPasscode') || '1234'
+    teacherPasscode: localStorage.getItem('teacherPasscode') || '1234',
+    dailyAnnouncements: JSON.parse(localStorage.getItem('dailyAnnouncements')) || {}
   };
 
   const jsonString = JSON.stringify(backupData, null, 2);
@@ -3998,6 +4255,44 @@ const importClassroomData = (event) => {
       localStorage.setItem('absentLogs', JSON.stringify(data.absentLogs || {}));
       localStorage.setItem('processedDeductionDates', JSON.stringify(data.processedDeductionDates || []));
       localStorage.setItem('teacherPasscode', String(data.teacherPasscode || '1234'));
+      localStorage.setItem('dailyAnnouncements', JSON.stringify(data.dailyAnnouncements || {}));
+
+      // 만약 파이어베이스가 연동되어 있다면, 리로드 전 파이어베이스에도 즉시 업로드하여 덮어씌워짐 방지
+      if (currentSyncMode === 'firebase' && dbRef) {
+        students = data.students;
+        grades = data.grades;
+        dailyLogs = data.dailyLogs || {};
+        pointHistory = data.pointHistory || [];
+        config = data.config || {};
+        dailyAssignments = data.dailyAssignments || {};
+        pendingRequests = data.pendingRequests || {};
+        absentLogs = data.absentLogs || {};
+        processedDeductionDates = data.processedDeductionDates || [];
+        teacherPasscode = String(data.teacherPasscode || '1234');
+        dailyAnnouncements = data.dailyAnnouncements || {};
+
+        dbRef.set({
+          students,
+          grades,
+          dailyLogs,
+          pointHistory,
+          config,
+          dailyAssignments,
+          pendingRequests,
+          absentLogs,
+          processedDeductionDates,
+          teacherPasscode,
+          dailyAnnouncements
+        }).then(() => {
+          alert("🎉 학급 데이터 로컬 복원 및 파이어베이스 동기화 업로드가 완료되었습니다!");
+          location.reload();
+        }).catch(err => {
+          console.error("[Firebase] 가져오기 데이터 업로드 실패:", err);
+          alert("🎉 학급 데이터 로컬 복원은 완료되었으나 파이어베이스 업로드 중 오류가 발생했습니다: " + err.message);
+          location.reload();
+        });
+        return; // 리로드는 파이어베이스 업로드 완료 후 실행
+      }
 
       // 만약 구글 드라이브가 연동되어 있다면, 리로드 전 구글 드라이브에도 즉시 업로드하여 덮어씌워짐 방지
       if (googleAccessToken && googleDriveFileId) {
@@ -4012,6 +4307,7 @@ const importClassroomData = (event) => {
         absentLogs = data.absentLogs || {};
         processedDeductionDates = data.processedDeductionDates || [];
         teacherPasscode = String(data.teacherPasscode || '1234');
+        dailyAnnouncements = data.dailyAnnouncements || {};
 
         uploadGoogleDriveBackupFile(googleDriveFileId).then(() => {
           alert("🎉 학급 데이터 로컬 복원 및 구글 드라이브 동기화 업로드가 완료되었습니다!");
@@ -4034,6 +4330,35 @@ const importClassroomData = (event) => {
   reader.readAsText(file);
 };
 
+const archiveAndResetNewSemester = () => {
+  if (!confirm("⚠️ [새 학기 전환 / 데이터 초기화]\n\n정말로 새 학기 전환을 진행하시겠습니까?\n이 작업은 다음과 같이 진행됩니다:\n1. 현재 학급 데이터 백업 파일(.json)이 자동으로 다운로드됩니다.\n2. 알림장 역사, 일일 과제 수행 기록, 포인트 변동 로그가 모두 초기화됩니다.\n3. 학생 명단은 유지되나, 모든 학생의 점수가 0점으로 재설정됩니다.\n\n계속하시겠습니까?")) {
+    return;
+  }
+  
+  // 1. 백업 데이터 자동 다운로드 실행
+  exportClassroomData();
+  
+  // 2. 이력 데이터 초기화
+  dailyLogs = {};
+  pointHistory = [];
+  dailyAssignments = {};
+  dailyAnnouncements = {};
+  pendingRequests = {};
+  absentLogs = {};
+  processedDeductionDates = [];
+  
+  // 3. 학생 점수 0점 리셋
+  students.forEach(s => {
+    s.total_points = 0;
+  });
+  
+  // 4. 저장 및 페이지 새로고침
+  saveData();
+  
+  alert("🎉 새 학기 전환 및 데이터 초기화가 완료되었습니다!\n다운로드 폴더에서 백업용 데이터 파일을 확인해 주세요.");
+  location.reload();
+};
+
 
 // ==========================================================================
 // 13. HTML 인라인 이벤트 핸들러용 Window 전역 바인딩
@@ -4044,7 +4369,10 @@ window.showCalendarView = showCalendarView;
 window.showDateDetail = showDateDetail;
 window.exportClassroomData = exportClassroomData;
 window.triggerImportFileInput = triggerImportFileInput;
+window.archiveAndResetNewSemester = archiveAndResetNewSemester;
 window.importClassroomData = importClassroomData;
+window.renderPointHistoryDatabase = renderPointHistoryDatabase;
+window.filterPointHistoryTable = filterPointHistoryTable;
 window.toggleTaskInTableDynamic = toggleTaskInTableDynamic;
 window.addNewStudentRow = addNewStudentRow;
 window.deleteRosterRow = deleteRosterRow;
@@ -4098,6 +4426,8 @@ window.goBackToStudentPortalLogin = goBackToStudentPortalLogin;
 window.copyStudentPortalLink = copyStudentPortalLink;
 window.viewStudentPortalFromTeacher = viewStudentPortalFromTeacher;
 window.saveTeacherPasscode = saveTeacherPasscode;
+window.saveStudentPasscode = saveStudentPasscode;
+window.verifyStudentPortalPasscode = verifyStudentPortalPasscode;
 window.promptTeacherLogin = promptTeacherLogin;
 window.openGradesBulkModal = openGradesBulkModal;
 window.closeGradesBulkModal = closeGradesBulkModal;
@@ -4703,7 +5033,13 @@ const initAnnouncementEditor = () => {
     // 포커스를 잃었을 때 자동으로 저장
     contentEl.addEventListener('blur', () => {
       const newText = contentEl.innerText.trim();
-      config.today_announcement = newText;
+      if (newText) {
+        dailyAnnouncements[currentAnnouncementDate] = newText;
+      } else {
+        delete dailyAnnouncements[currentAnnouncementDate];
+      }
+      // Keep legacy today_announcement in sync for today's date
+      config.today_announcement = dailyAnnouncements[getTodayDateString()] || "";
       saveData();
     });
 
@@ -4782,7 +5118,109 @@ const initAnnouncementEditor = () => {
   }
 };
 
+const initDetailAnnouncementEditor = () => {
+  const contentEl = document.getElementById('records-detail-announcement-content');
+  if (contentEl) {
+    // 포커스를 잃었을 때 자동으로 저장
+    contentEl.addEventListener('blur', () => {
+      const newText = contentEl.innerText.trim();
+      if (newText) {
+        dailyAnnouncements[selectedRecordDate] = newText;
+      } else {
+        delete dailyAnnouncements[selectedRecordDate];
+      }
+      
+      // 만약 현재 수정 중인 날짜가 오늘이라면 메인 화면 알림장 버퍼에도 반영
+      const todayStr = getTodayDateString();
+      if (selectedRecordDate === todayStr) {
+        config.today_announcement = newText;
+        const mainContentEl = document.getElementById('announcement-content');
+        if (mainContentEl) mainContentEl.innerText = newText;
+      }
+      
+      saveData();
+      renderCalendar(); // 달력의 알림장 미리보기 배지 갱신용
+    });
 
+    // 엔터 입력 시 자동으로 번호 매기기 및 문장 구분
+    contentEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return;
+        const range = selection.getRangeAt(0);
+
+        // 커서 앞쪽의 텍스트 추출
+        const preCaretRange = range.cloneRange();
+        preCaretRange.selectNodeContents(contentEl);
+        preCaretRange.setEnd(range.endContainer, range.endOffset);
+        const textBeforeCaret = preCaretRange.toString();
+
+        // 줄바꿈으로 분리하여 현재 줄 분석
+        const linesBefore = textBeforeCaret.split('\n');
+        const currentLine = linesBefore[linesBefore.length - 1];
+
+        // 숫자로 시작하는지 확인 (예: "1. ", "2. ")
+        const numberMatch = currentLine.match(/^(\d+)\.\s*(.*)/);
+
+        if (numberMatch) {
+          const num = parseInt(numberMatch[1], 10);
+          const textAfterNumber = numberMatch[2].trim();
+
+          if (textAfterNumber === '') {
+            // 내용 없이 번호만 있는 줄에서 엔터를 치면 번호를 지우고 줄바꿈만 수행 (리스트 종료)
+            e.preventDefault();
+            const lenToDelete = currentLine.length;
+            for (let i = 0; i < lenToDelete; i++) {
+              document.execCommand('delete');
+            }
+            document.execCommand('insertText', false, '\n');
+          } else {
+            // 내용이 있는 줄에서 엔터를 치면 다음 번호를 자동으로 매겨서 줄바꿈
+            e.preventDefault();
+            const nextNum = num + 1;
+            document.execCommand('insertText', false, `\n${nextNum}. `);
+          }
+        } else {
+          // 숫자로 시작하지 않는 경우, 텍스트가 존재하면 자동으로 "1. "으로 시작
+          if (currentLine.trim() !== '') {
+            e.preventDefault();
+            document.execCommand('insertText', false, '\n1. ');
+          }
+        }
+      }
+    });
+
+    // 붙여넣기 시 서식을 모두 지우고 일반 텍스트만 들어가도록 처리
+    contentEl.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const text = e.clipboardData.getData('text/plain');
+      document.execCommand('insertText', false, text);
+    });
+  }
+};
+
+// 알림장 날짜 변경 이벤트 핸들러 (이벤트 위임)
+document.addEventListener('change', (e) => {
+  if (e.target && e.target.id === 'announcement-date-input') {
+    currentAnnouncementDate = e.target.value;
+    const displayEl = document.getElementById('announcement-date-display');
+    const contentEl = document.getElementById('announcement-content');
+    if (displayEl) displayEl.innerText = formatKoreanDate(currentAnnouncementDate);
+    if (contentEl) {
+      contentEl.innerText = dailyAnnouncements[currentAnnouncementDate] || "";
+    }
+  }
+  
+  if (e.target && e.target.id === 'portal-announcement-date-input') {
+    currentPortalAnnouncementDate = e.target.value;
+    const displayEl = document.getElementById('portal-announcement-date-display');
+    const contentEl = document.getElementById('portal-announcement-content');
+    if (displayEl) displayEl.innerText = formatKoreanDate(currentPortalAnnouncementDate);
+    if (contentEl) {
+      contentEl.innerText = dailyAnnouncements[currentPortalAnnouncementDate] || "알림장이 없습니다.";
+    }
+  }
+});
 
 window.addEventListener('hashchange', router);
 window.onload = () => {
@@ -4801,6 +5239,7 @@ window.onload = () => {
   startClock();
   initDailyRecordsTab();
   initAnnouncementEditor();
+  initDetailAnnouncementEditor();
   
   // 구글 드라이브 연동 초기화 및 자동 동기화
   initGoogleDriveSync();

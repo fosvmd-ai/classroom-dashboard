@@ -122,8 +122,12 @@
       <aside class="sidebar-section">
         <!-- 📢 오늘의 알림장 -->
         <div class="widget-card announcement-widget" style="cursor: text;">
-          <div class="widget-header">
-            <h3>📢 오늘의 알림장 <span style="font-size:11px; color:var(--text-muted); font-weight:normal; margin-left:6px;">(클릭 시 즉시 편집 가능)</span></h3>
+          <div class="widget-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; width: 100%;">
+            <h3 style="margin: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 6px;">📢 오늘의 알림장 <span style="font-size:11px; color:var(--text-muted); font-weight:normal;">(클릭 시 즉시 편집 가능)</span></h3>
+            <div style="display: flex; align-items: center; gap: 8px; margin-left: auto;">
+              <span id="announcement-date-display" style="font-size: 18px; font-weight: 800; color: var(--text-color); margin-right: 4px;"></span>
+              <input type="date" id="announcement-date-input" style="font-family: inherit; font-size: 12px; font-weight: bold; padding: 4px 6px; border: 1px solid var(--border-color); border-radius: 6px; background: white; color: var(--text-color); cursor: pointer; outline: none;">
+            </div>
           </div>
           <div class="widget-body">
             <p id="announcement-content" contenteditable="true" style="outline: none; width: 100%; min-height: 120px;">로딩 중...</p>
@@ -194,14 +198,25 @@
 
       <!-- 서브뷰 2: 특정 날짜 상세 학생 과제 체크 화면 -->
       <div id="records-detail-view" class="records-subview hidden">
-        <div class="panel-header">
+        <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
           <div style="display:flex; align-items:center; gap:16px;">
             <button class="back-btn" onclick="showCalendarView()">⬅️ 달력으로 돌아가기</button>
             <h2 id="detail-date-title">2026-06-11 과제 제출 상세</h2>
           </div>
-          <button class="btn-danger" onclick="deleteCurrentDayAssignments()">🗑️ 오늘 과제판 전체 삭제</button>
+          <div style="display: flex; align-items: center; gap: 8px; margin-left: auto;">
+            <button id="btn-detail-add-tasks" class="btn-primary" onclick="openCreateAssignmentModal(selectedRecordDate)" style="padding: 8px 14px; font-size: 13px; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; background: #3b82f6; color: white;">➕ 과제판 만들기/추가</button>
+            <button class="btn-danger" onclick="deleteCurrentDayAssignments()" style="padding: 8px 14px; font-size: 13px; font-weight: bold; border-radius: 6px; border: none; cursor: pointer;">🗑️ 오늘 과제판 전체 삭제</button>
+          </div>
         </div>
         <p class="panel-desc">체크박스를 조작하면 해당 학생의 신용점수가 즉시 가감되고 이력이 자동 저장됩니다.</p>
+        
+        <!-- 📢 이 날짜의 알림장 -->
+        <div class="portal-card announcement-card" style="margin-bottom: 20px; background: #fffdf0; border-color: #fde047; padding: 15px; border-radius: 12px; border: 1px solid #fde047; box-shadow: none;">
+          <h3 style="color: #713f12; margin-top: 0; margin-bottom: 8px; font-size: 15px; border-bottom: 1px solid #fef08a; padding-bottom: 6px; display: flex; align-items: center; justify-content: space-between; border-top: none; padding-top: 0;">
+            <span>📢 이 날짜의 알림장 <span style="font-size:11px; color:var(--text-muted); font-weight:normal; margin-left:6px;">(클릭 시 즉시 편집 가능)</span></span>
+          </h3>
+          <p id="records-detail-announcement-content" contenteditable="true" style="outline: none; font-size: 16px; line-height: 1.6; color: #713f12; white-space: pre-wrap; font-weight: bold; margin: 0; min-height: 40px; text-align: left; width: 100%;">알림장이 없습니다.</p>
+        </div>
         
         <div class="table-responsive">
           <table class="admin-table">
@@ -295,6 +310,56 @@
           </tbody>
         </table>
       </div>
+
+      <!-- 📈 전체 학생 점수 변동 내역 조회 (데이터베이스) -->
+      <div class="panel-card" style="margin-top: 40px; padding: 24px; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-card); box-shadow: var(--shadow-sm);">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 15px; border-bottom: 2px solid var(--border-color); padding-bottom: 12px;">
+          <h3 style="font-size: 16px; font-weight: 800; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 8px;">
+            📈 전체 학생 점수 변동 내역 (데이터베이스)
+          </h3>
+          <div style="font-size: 13px; font-weight: bold; color: var(--text-muted);">
+            총 <span id="history-total-count" style="color: #4f46e5;">0</span>건의 내역
+          </div>
+        </div>
+        
+        <!-- 검색 및 필터 컨트롤 행 -->
+        <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center; margin-bottom: 20px; padding: 15px; border-radius: var(--radius-sm); background: rgba(0,0,0,0.01); border: 1px solid var(--border-color);">
+          <div style="display: flex; gap: 8px; align-items: center; flex: 1; min-width: 200px;">
+            <label style="font-weight: bold; color: var(--text-muted); font-size: 13px; white-space: nowrap;">👤 학생 이름/번호:</label>
+            <input type="text" id="history-search-student" oninput="filterPointHistoryTable()" placeholder="이름 또는 학번 입력..." style="width: 100%; padding: 8px 12px; font-size: 13px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); outline: none; background: var(--bg-card); color: var(--text-main);">
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center; flex: 1; min-width: 200px;">
+            <label style="font-weight: bold; color: var(--text-muted); font-size: 13px; white-space: nowrap;">📝 변동 사유:</label>
+            <input type="text" id="history-search-reason" oninput="filterPointHistoryTable()" placeholder="변동 사유 검색..." style="width: 100%; padding: 8px 12px; font-size: 13px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); outline: none; background: var(--bg-card); color: var(--text-main);">
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center; min-width: 150px;">
+            <label style="font-weight: bold; color: var(--text-muted); font-size: 13px; white-space: nowrap;">⚡ 변동 유형:</label>
+            <select id="history-filter-type" onchange="filterPointHistoryTable()" style="padding: 8px 12px; font-size: 13px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); outline: none; background: var(--bg-card); color: var(--text-main); font-weight: bold;">
+              <option value="all">전체 내역</option>
+              <option value="positive">➕ 플러스 점수</option>
+              <option value="negative">➖ 마이너스 점수</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 데이터 테이블 -->
+        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+          <table class="admin-table" style="font-size: 13px;">
+            <thead>
+              <tr style="position: sticky; top: 0; background: var(--bg-card); z-index: 10;">
+                <th width="140px">일시</th>
+                <th width="80px">번호</th>
+                <th width="100px">이름</th>
+                <th width="100px">변동 점수</th>
+                <th>점수 변동 사유</th>
+              </tr>
+            </thead>
+            <tbody id="history-database-table-body">
+              <!-- JS 동적 생성 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- 탭 4: 신용등급 기준 설정 -->
@@ -330,9 +395,10 @@
       <div style="margin-top: 30px; padding-top: 20px; border-top: 2px dashed var(--border-color); display: flex; flex-direction: column; gap: 16px;">
         <!-- 데이터 백업 & 복원 행 -->
         <div style="display: flex; align-items: center; gap: 16px; justify-content: flex-end; flex-wrap: wrap; margin-top: 4px;">
-          <h3 style="font-size: 15px; font-weight: 700; color: var(--text-main); margin: 0;">📂 학급 데이터 백업 및 복원:</h3>
+          <h3 style="font-size: 15px; font-weight: 700; color: var(--text-main); margin: 0; margin-right: auto;">📂 데이터 관리 및 학기 초기화:</h3>
           <button class="btn-success" onclick="exportClassroomData()" style="padding: 8px 16px; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">📥 데이터 내보내기 (백업)</button>
           <button class="btn-secondary" onclick="triggerImportFileInput()" style="padding: 8px 16px; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; background-color: #4f46e5; border-color: #4f46e5;">📤 데이터 가져오기 (복원)</button>
+          <button class="btn-delete" onclick="archiveAndResetNewSemester()" style="padding: 8px 16px; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; background-color: #dc2626; border-color: #dc2626; color: white;">🌱 새 학기 전환 (초기화)</button>
           <input type="file" id="import-data-file-input" onchange="importClassroomData(event)" accept=".json" style="display: none;">
         </div>
       </div>
@@ -445,6 +511,34 @@
             <button class="btn-success" onclick="copyTeacherDashboardLink()" id="btn-fb-share" style="padding: 8px 16px; font-size: 13px; cursor: pointer;">🔗 설정 포함 교사 링크 복사</button>
             <button class="btn-secondary hidden" onclick="disconnectFirebase()" id="btn-fb-disconnect" style="padding: 8px 16px; font-size: 13px; cursor: pointer; background: #64748b; border-color: #64748b;">❌ 연동 해제 및 로컬 모드 전환</button>
             <button class="btn-primary" onclick="saveFirebaseConfig()" style="padding: 8px 16px; font-size: 13px; cursor: pointer;">💾 파이어베이스 설정 저장</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 🔒 보안 설정 (교사 및 학생 비밀번호) -->
+      <div style="margin-top: 30px; padding-top: 20px; border-top: 2px dashed var(--border-color); display: flex; flex-direction: column; gap: 16px;">
+        <h3 style="font-size: 15px; font-weight: 700; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 6px;">
+          🔒 보안 설정
+        </h3>
+        <p style="font-size: 13px; color: var(--text-muted); margin: 0; line-height: 1.5;">
+          대시보드와 학생 포털 진입에 필요한 비밀번호를 관리합니다.
+        </p>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+          <!-- 교사 비밀번호 -->
+          <div style="display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--border-color); padding: 12px; border-radius: var(--radius-sm); background: var(--bg-card);">
+            <label style="font-size: 12px; font-weight: bold; color: var(--text-muted);">교사용 비밀번호 (대시보드 로그인용)</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="password" id="teacher-passcode-input" placeholder="새 비밀번호 입력 (4자리 이상)" style="flex: 1; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 13px; outline: none; background: var(--bg-card); color: var(--text-main);">
+              <button class="btn-primary" onclick="saveTeacherPasscode()" style="padding: 8px 16px; font-size: 13px; cursor: pointer;">변경</button>
+            </div>
+          </div>
+          <!-- 학생 비밀번호 -->
+          <div style="display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--border-color); padding: 12px; border-radius: var(--radius-sm); background: var(--bg-card);">
+            <label style="font-size: 12px; font-weight: bold; color: var(--text-muted);">학생 포털 비밀번호 (미설정 시 바로 조회 가능)</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="password" id="student-passcode-input" placeholder="학생 공통 비밀번호 입력" style="flex: 1; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 13px; outline: none; background: var(--bg-card); color: var(--text-main);">
+              <button class="btn-success" onclick="saveStudentPasscode()" style="padding: 8px 16px; font-size: 13px; cursor: pointer; background: #6366f1; border-color: #4f46e5;">변경</button>
+            </div>
           </div>
         </div>
       </div>
@@ -616,7 +710,13 @@
 
       <!-- 📢 오늘의 알림장 -->
       <section class="portal-card announcement-card" style="margin-bottom: 20px; background: #fffdf0; border-color: #fde047;">
-        <h3 style="color: #713f12; border-bottom-color: #fef08a; margin-bottom:10px;">📢 오늘의 알림장</h3>
+        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #fef08a; padding-bottom: 8px; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; width: 100%;">
+          <h3 style="color: #713f12; margin: 0; border: none; padding: 0;">📢 오늘의 알림장</h3>
+          <div style="display: flex; align-items: center; gap: 8px; margin-left: auto;">
+            <span id="portal-announcement-date-display" style="font-size: 20px; font-weight: 800; color: #713f12; margin-right: 4px;"></span>
+            <input type="date" id="portal-announcement-date-input" style="font-family: inherit; font-size: 12px; font-weight: bold; padding: 4px 6px; border: 1px solid #fde047; border-radius: 6px; background: #fef08a; color: #713f12; cursor: pointer; outline: none;">
+          </div>
+        </div>
         <p id="portal-announcement-content" style="font-size: 18px; line-height: 1.6; color: #713f12; white-space: pre-wrap; font-weight: bold; padding: 10px 15px; text-align: left; margin: 0;">알림장이 없습니다.</p>
       </section>
 
