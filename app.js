@@ -3657,6 +3657,11 @@ const renderStudentPortal = (studentId) => {
     return;
   }
 
+  // 만약 비밀번호 검증을 통과했고, student-view의 원본 템플릿이 지워진 상태라면 복원
+  if (window.originalStudentViewHtml && !document.getElementById('portal-student-title')) {
+    document.getElementById('student-view').innerHTML = window.originalStudentViewHtml;
+  }
+
   document.getElementById('portal-student-title').innerText = `🛡️ ${student.student_id}번 ${student.name} 학생의 신용수첩`;
   document.getElementById('portal-points').innerText = `${student.total_points}점`;
 
@@ -5448,6 +5453,11 @@ document.addEventListener('change', (e) => {
 
 window.addEventListener('hashchange', router);
 window.onload = () => {
+  // 학생용 수첩 원래 HTML 레이아웃을 전역 백업 (비밀번호 확인창 등으로 덮어쓰기될 경우 복원용)
+  const studentViewEl = document.getElementById('student-view');
+  if (studentViewEl) {
+    window.originalStudentViewHtml = studentViewEl.innerHTML;
+  }
   parseUrlParams(); // URL 파라미터로 전파된 구글 클라이언트 ID 파싱
   initDatabaseMigration(); // 데이터 로드 마이그레이션 적용
   processAutoDeductions(); // 미제출 과제 자동 감점 실행
