@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, session } = require('electron');
 const path = require('path');
 const http = require('http');
 const fs = require('fs');
@@ -86,6 +86,11 @@ function createWindow(port) {
     }
   });
 
+  // 자식 창(Firebase 로그인 팝업 등)이 생성될 때 User-Agent 강제 주입하여 구글 차단 우회
+  mainWindow.webContents.on('did-create-window', (childWindow) => {
+    childWindow.webContents.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+  });
+
   // 메뉴 막대 제거 (깔끔한 데스크톱 화면)
   mainWindow.setMenuBarVisibility(false);
   // 로컬 서버 주소 로드
@@ -99,6 +104,12 @@ function createWindow(port) {
 app.whenReady().then(() => {
   // Google OAuth 로그인 차단 우회를 위한 전역 User-Agent 설정
   app.userAgentFallback = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+  
+  // 모든 네트워크 요청 헤더에서 Electron 식별자를 지우고 크롬 브라우저로 헤더 위장
+  session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
+    details.requestHeaders['User-Agent'] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+    callback({ cancel: false, requestHeaders: details.requestHeaders });
+  });
   
   startLocalServer((port) => {
     createWindow(port);
