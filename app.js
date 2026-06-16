@@ -163,7 +163,7 @@ const initDatabaseMigration = () => {
   saveData();
 };
 
-const saveData = () => {
+const saveData = (skipFirebase = false) => {
   localStorage.setItem('students', JSON.stringify(students));
   localStorage.setItem('grades', JSON.stringify(grades));
   localStorage.setItem('dailyLogs', JSON.stringify(dailyLogs));
@@ -176,6 +176,7 @@ const saveData = () => {
   localStorage.setItem('teacherPasscode', String(teacherPasscode));
   localStorage.setItem('dailyAnnouncements', JSON.stringify(dailyAnnouncements));
 
+  if (skipFirebase) return; // 로컬만 저장하고 파이어베이스 동기화 건너뜀
   if (isSyncingFromRemote) return;
 
   // 보안 강화: 학생 기기(비인증 상태)는 전체 원격 데이터 동기화를 차단하여 덮어쓰기 방지
@@ -221,7 +222,7 @@ const saveData = () => {
       }
     });
   }
-};
+}
 
 // URL 파라미터 파싱을 통해 구글 클라이언트 ID 자동 주입 (연동 링크 대응)
 const parseUrlParams = () => {
@@ -4016,14 +4017,29 @@ const approveTaskRequest = (studentId, dateKey, taskId, taskName, points) => {
     }
   }
 
-  // 파이어베이스 동기화 모드 시 개별 경로 원자적 제거로 동시성 보장
+  // 5. 로컬 저장 (Firebase 전송은 건너뜀)
+  saveData(true);
+
+  // 6. 파이어베이스 동기화 모드 시 원자적 단일 업데이트 수행
   if (currentSyncMode === 'firebase' && dbRef) {
-    dbRef.child('pendingRequests').child(dateKey).child(studentId).child(taskId).remove().catch(err => {
-      console.error("[Firebase] 승인 요청 삭제 실패:", err);
+    const updates = {};
+    updates[`dailyLogs/${dateKey}/${studentId}/${targetTaskId}`] = true;
+    if (student) {
+      const idx = students.findIndex(s => s.student_id === studentId);
+      if (idx !== -1) {
+        updates[`students/${idx}/total_points`] = student.total_points;
+      }
+    }
+    updates[`pointHistory`] = pointHistory;
+    // 특정 요청 노드를 null로 설정하여 삭제 처리
+    updates[`pendingRequests/${dateKey}/${studentId}/${taskId}`] = null;
+
+    dbRef.update(updates).catch(err => {
+      console.error("[Firebase] 승인 처리 업로드 실패:", err);
+      alert("⚠️ [서버 승인 실패] 인터넷 연결 상태나 데이터베이스 권한을 확인해주세요.");
     });
   }
   
-  saveData();
   playAudioEffect('chime');
   
   // 날짜 정보 포맷팅 (예: 6월 16일자)
@@ -4052,14 +4068,18 @@ const rejectTaskRequest = (studentId, dateKey, taskId, taskName) => {
     }
   }
 
-  // 파이어베이스 동기화 모드 시 개별 경로 원자적 제거로 동시성 보장
+  // 2. 로컬 저장 (Firebase 전송은 건너뜀)
+  saveData(true);
+
+  // 3. 파이어베이스 동기화 모드 시 원자적 단일 업데이트 수행
   if (currentSyncMode === 'firebase' && dbRef) {
-    dbRef.child('pendingRequests').child(dateKey).child(studentId).child(taskId).remove().catch(err => {
-      console.error("[Firebase] 승인 요청 삭제 실패:", err);
+    const updates = {};
+    updates[`pendingRequests/${dateKey}/${studentId}/${taskId}`] = null;
+    dbRef.update(updates).catch(err => {
+      console.error("[Firebase] 반려 처리 업로드 실패:", err);
     });
   }
   
-  saveData();
   playAudioEffect('buzz');
   const student = students.find(s => s.student_id === studentId);
   alert(`❌ ${student ? student.name : studentId} 학생의 '${taskName}' 과제 요청이 반려되었습니다.`);
