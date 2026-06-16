@@ -3723,9 +3723,13 @@ const requestTaskApproval = (studentId, taskId, taskName, dateKey, points) => {
   // 로컬 저장
   localStorage.setItem('pendingRequests', JSON.stringify(pendingRequests));
   
-  const showSuccess = () => {
+  const showSuccess = (isSynced) => {
     playAudioEffect('coin');
-    alert(`📥 '${taskName}' 과제 완료 승인 요청이 교사 대시보드로 전송되었습니다!`);
+    if (isSynced) {
+      alert(`📥 '${taskName}' 과제 완료 승인 요청이 교사 대시보드로 전송되었습니다!`);
+    } else {
+      alert(`⚠️ 실시간 동기화(Firebase)가 연결되지 않아 교사 대시보드로 전송되지 않고 로컬에만 저장되었습니다.\n교사용 대시보드에서 생성된 최신 QR 코드를 다시 스캔해 주세요.`);
+    }
     renderStudentPortal(studentId);
   };
   
@@ -3733,14 +3737,14 @@ const requestTaskApproval = (studentId, taskId, taskName, dateKey, points) => {
   if (currentSyncMode === 'firebase' && dbRef) {
     dbRef.child('pendingRequests').child(targetDate).child(studentId).child(taskId).set(reqObj)
       .then(() => {
-        showSuccess();
+        showSuccess(true);
       })
       .catch(err => {
         console.error("[Firebase] 완료 요청 업로드 실패:", err);
         alert(`❌ 과제 승인 요청 전송에 실패했습니다: ${err.message}\n인터넷 연결을 확인하고 다시 시도해 주세요.`);
       });
   } else {
-    showSuccess();
+    showSuccess(false);
   }
 };
 
