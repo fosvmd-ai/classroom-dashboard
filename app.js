@@ -3966,7 +3966,17 @@ const approveTaskRequest = (studentId, dateKey, taskId, taskName, points) => {
   // 1. dailyLogs에 승인 완료 처리
   if (!dailyLogs[dateKey]) dailyLogs[dateKey] = {};
   if (!dailyLogs[dateKey][studentId]) dailyLogs[dateKey][studentId] = {};
-  dailyLogs[dateKey][studentId][taskId] = true;
+  
+  // 과제 ID 매칭 보완: 만약 전송된 taskId가 현재 해당 날짜의 과제 목록에 없고, 
+  // 동일한 이름의 과제가 존재한다면 해당 과제의 ID로 대체 적용 (과제 수정/재생성 대응)
+  let targetTaskId = taskId;
+  const targetTasks = dailyAssignments[dateKey] || [];
+  const matchingTask = targetTasks.find(t => t.name === taskName);
+  if (matchingTask) {
+    targetTaskId = matchingTask.id;
+  }
+  
+  dailyLogs[dateKey][studentId][targetTaskId] = true;
   
   // 2. 점수 가산
   const student = students.find(s => s.student_id === studentId);
@@ -3982,7 +3992,7 @@ const approveTaskRequest = (studentId, dateKey, taskId, taskName, points) => {
     points_changed: points,
     reason: `${taskName} 완료 승인 (모바일 제출)`,
     assignment_date: dateKey,
-    task_id: taskId
+    task_id: targetTaskId
   });
   
   // 4. pendingRequests에서 삭제
@@ -4006,7 +4016,17 @@ const approveTaskRequest = (studentId, dateKey, taskId, taskName, points) => {
   
   saveData();
   playAudioEffect('chime');
-  alert(`✔️ ${student ? student.name : studentId} 학생의 '${taskName}' 과제가 승인 처리되었습니다 (+${points}점).`);
+  
+  // 날짜 정보 포맷팅 (예: 6월 16일자)
+  let dateDisplay = "";
+  try {
+    const parts = dateKey.split('-');
+    if (parts.length === 3) {
+      dateDisplay = `${parseInt(parts[1], 10)}월 ${parseInt(parts[2], 10)}일자 `;
+    }
+  } catch(e) {}
+  
+  alert(`✔️ ${student ? student.name : studentId} 학생의 ${dateDisplay}'${taskName}' 과제가 승인 처리되었습니다 (+${points}점).`);
   renderTeacherDashboard();
 };
 
