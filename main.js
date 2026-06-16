@@ -88,10 +88,8 @@ function createWindow(port) {
 
   // 메뉴 막대 제거 (깔끔한 데스크톱 화면)
   mainWindow.setMenuBarVisibility(false);
-
   // 로컬 서버 주소 로드
-  mainWindow.loadURL(`http://127.0.0.1:${port}`);
-
+  mainWindow.loadURL(`http://localhost:${port}`);
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
