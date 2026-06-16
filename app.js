@@ -3972,9 +3972,15 @@ const approveTaskRequest = (studentId, dateKey, taskId, taskName, points) => {
   
   // 과제 ID 매칭 보완: 만약 전송된 taskId가 현재 해당 날짜의 과제 목록에 없고, 
   // 동일한 이름의 과제가 존재한다면 해당 과제의 ID로 대체 적용 (과제 수정/재생성 대응)
+  // 한글, 영어, 숫자만 추출하여 공백 및 이모지 차이와 무관하게 비교
   let targetTaskId = taskId;
   const targetTasks = dailyAssignments[dateKey] || [];
-  const matchingTask = targetTasks.find(t => t.name === taskName);
+  const cleanName = (str) => {
+    if (!str) return '';
+    return str.replace(/[^가-힣a-zA-Z0-9]/g, '');
+  };
+  const targetClean = cleanName(taskName);
+  const matchingTask = targetTasks.find(t => cleanName(t.name) === targetClean);
   if (matchingTask) {
     targetTaskId = matchingTask.id;
   }
