@@ -209,6 +209,15 @@ const saveData = () => {
       dailyAnnouncements
     }).catch(err => {
       console.error("[Firebase] 백그라운드 자동 업로드 실패:", err);
+      // 교사 화면인 경우 알림창 표시 (권한 거부 또는 연결 실패 인지 유도)
+      if (isTeacherAuthenticated()) {
+        const errStr = err.message || '';
+        if (errStr.includes('permission_denied') || errStr.toLowerCase().includes('permission denied')) {
+          alert("⚠️ [서버 저장 실패] 데이터베이스 쓰기 권한이 거부되었습니다 (Permission Denied).\n\n파이어베이스 규칙(Rules) 탭에서 \".write\": true 로 규칙을 변경했는지 확인해 주시거나, 교사 설정 탭에서 구글 로그인을 진행해 주세요.");
+        } else {
+          alert("⚠️ [서버 저장 실패] " + err.message);
+        }
+      }
     });
   }
 };
