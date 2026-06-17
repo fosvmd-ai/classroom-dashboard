@@ -4818,7 +4818,7 @@ const isTeacherAuthenticated = () => {
 };
 
 const loginAsTeacher = () => {
-  if (currentSyncMode === 'local') {
+  if (currentSyncMode === 'gdrive') {
     if (!tokenClient) {
       initGoogleDriveSync();
     }
@@ -4826,15 +4826,21 @@ const loginAsTeacher = () => {
       tokenClient.requestAccessToken();
       sessionStorage.setItem('teacher_authenticated', 'true');
     } else {
-      // Fallback: GIS 라이브러리가 없거나 설정 오류 발생 시 로컬 전용 진입 허용
-      sessionStorage.setItem('teacher_authenticated', 'true');
-      alert("🎉 로컬 개발 모드로 로그인되었습니다. (구글 로그인 생략)");
-      window.location.hash = "#teacher";
-      location.reload();
+      alert("❌ 구글 드라이브 동기화 초기화 실패. Client ID를 확인해 주세요.");
     }
-  } else if (currentSyncMode === 'firebase') {
+    return;
+  }
+
+  // 그 외의 경우 (local이거나 firebase 모드인 경우) -> 기본적으로 Firebase 구글 로그인을 수행한다.
+  // 만약 firebaseConfig가 없거나 유효하지 않다면 defaultFirebaseConfig를 기본값으로 사용한다.
+  let targetConfig = firebaseConfig;
+  if (!targetConfig || !targetConfig.apiKey || !targetConfig.databaseURL || !targetConfig.projectId) {
+    targetConfig = { ...defaultFirebaseConfig };
+  }
+
+  try {
     if (firebase.apps.length === 0) {
-      firebase.initializeApp(firebaseConfig);
+      firebase.initializeApp(targetConfig);
     }
     const provider = new firebase.auth.GoogleAuthProvider();
     firebase.auth().signInWithPopup(provider).then((result) => {
@@ -4849,26 +4855,23 @@ const loginAsTeacher = () => {
       sessionStorage.setItem('teacher_authenticated', 'true');
       
       // 자동 연동: 구글 계정 ID(UID)를 이 선생님의 학급 연동 키로 자동 할당
-      firebaseConfig.classroomSyncKey = user.uid;
-      localStorage.setItem('firebaseConfig', JSON.stringify(firebaseConfig));
+      targetConfig.classroomSyncKey = user.uid;
+      localStorage.setItem('firebaseConfig', JSON.stringify(targetConfig));
+      firebaseConfig = targetConfig;
       
-      alert(`🎉 안녕하세요, ${user.displayName} 선생님!\n선생님의 학급 관리 대시보드로 로그인되었습니다.`);
+      localStorage.setItem('currentSyncMode', 'firebase');
+      currentSyncMode = 'firebase';
+      
+      alert(`🎉 안녕하세요, ${user.displayName} 선생님!\n선생님의 구글 UID 기반 학급 관리 대시보드로 로그인되었습니다.\n(데이터가 클라우드에 자동 연동됩니다)`);
       window.location.hash = "#teacher";
       location.reload();
     }).catch((error) => {
       console.error("[Firebase] 교사 로그인 실패:", error);
       alert("❌ 로그인 실패: " + error.message);
     });
-  } else if (currentSyncMode === 'gdrive') {
-    if (!tokenClient) {
-      initGoogleDriveSync();
-    }
-    if (tokenClient) {
-      tokenClient.requestAccessToken();
-      sessionStorage.setItem('teacher_authenticated', 'true');
-    } else {
-      alert("❌ 구글 드라이브 동기화 초기화 실패. Client ID를 확인해 주세요.");
-    }
+  } catch (err) {
+    console.error(err);
+    alert("❌ 파이어베이스 구글 연동 오류: " + err.message);
   }
 };
 
