@@ -2794,6 +2794,15 @@ const cancelPointHistoryItem = (timestamp, studentId) => {
       }
     }
 
+    // 3-B. 만약 주간 완수 보너스 이력이었다면, weekly_bonus 맵에서 해당 기록 제거
+    if (log.reason && log.reason.includes('[주간 완수 보너스]')) {
+      const weekdays = getWeekdaysOfCurrentWeek(log.timestamp.substring(0, 10));
+      const weekId = weekdays[0];
+      if (student && student.weekly_bonus) {
+        delete student.weekly_bonus[weekId];
+      }
+    }
+
     // 4. 이력 제거
     pointHistory.splice(logIndex, 1);
 
@@ -4093,6 +4102,82 @@ const requestTaskApproval = (studentId, taskId, taskName, dateKey, points) => {
   }
 };
 
+const getWeekdaysOfCurrentWeek = (dateStr) => {
+  const d = parseLocalDate(dateStr);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // 월요일 날짜 구하기
+  const monday = new Date(d.setDate(diff));
+  
+  const weekdays = [];
+  for (let i = 0; i < 5; i++) {
+    const temp = new Date(monday);
+    temp.setDate(monday.getDate() + i);
+    weekdays.push(formatLocalDate(temp));
+  }
+  return weekdays;
+};
+
+const checkWeeklyBonus = (student, todayStr) => {
+  const weekdays = getWeekdaysOfCurrentWeek(todayStr);
+  const weekId = weekdays[0]; // 월요일 날짜를 주 고유 ID로 사용
+  
+  // 이미 이번 주 보너스를 받았는지 체크
+  student.weekly_bonus = student.weekly_bonus || {};
+  if (student.weekly_bonus[weekId]) {
+    return false;
+  }
+  
+  // 오늘이 금요일(5), 토요일(6), 일요일(0) 인 경우에만 주간 완료 보너스 지급 판정
+  const d = parseLocalDate(todayStr);
+  const isFridayOrLater = d.getDay() >= 5 || d.getDay() === 0;
+  if (!isFridayOrLater) {
+    return false;
+  }
+  
+  // 월~금 모든 날짜에 대해 출석 및 과제 완수 검증
+  let isAllComplete = true;
+  for (const date of weekdays) {
+    // 1. 출석체크 검사
+    const attended = student.attendance && student.attendance[date] === true;
+    if (!attended) {
+      isAllComplete = false;
+      break;
+    }
+    
+    // 2. 과제 제출 검사
+    const tasks = dailyAssignments[date] || [];
+    const dayLogs = dailyLogs[date] || {};
+    const studentLog = dayLogs[student.student_id] || {};
+    
+    for (const task of tasks) {
+      if (studentLog[task.id] !== true) {
+        isAllComplete = false;
+        break;
+      }
+    }
+    if (!isAllComplete) break;
+  }
+  
+  if (isAllComplete) {
+    // 보너스 점수 지급 (+1점)
+    student.weekly_bonus[weekId] = true;
+    student.total_points = parseInt(student.total_points || 0) + 1;
+    
+    // 이력 등록
+    const bonusItem = {
+      student_id: student.student_id,
+      timestamp: new Date().toISOString(),
+      points_changed: 1,
+      reason: `🎁 [주간 완수 보너스] 이번 주 출석 및 과제 100% 완수 보너스 (+1)`,
+      is_weekly_bonus: true
+    };
+    pointHistory.push(bonusItem);
+    return true;
+  }
+  
+  return false;
+};
+
 const checkStudentAttendance = (studentId) => {
   const student = students.find(s => s.student_id === studentId);
   if (!student) return;
@@ -4104,24 +4189,23 @@ const checkStudentAttendance = (studentId) => {
     return;
   }
 
-  // 출석 체크 처리
+  // 1. 출석 체크 처리 (점수는 더하지 않고 출석 마크만 저장)
   student.attendance[todayStr] = true;
-  student.total_points = parseInt(student.total_points || 0) + 1;
 
-  // 히스토리에 기록
-  const historyItem = {
-    student_id: student.student_id,
-    timestamp: new Date().toISOString(),
-    points_changed: 1,
-    reason: `📅 [출석체크] 오늘의 출석체크 완료 적립 (+1)`
-  };
-  pointHistory.push(historyItem);
+  // 2. 주간 완수 보너스 검증 실행
+  const gotBonus = checkWeeklyBonus(student, todayStr);
 
   // 저장 및 포털 화면 새로고침
   saveData();
   
-  playAudioEffect('coin');
-  alert("🎉 오늘 출석 체크가 완료되었습니다! 신용점수 1점이 적립되었습니다.");
+  if (gotBonus) {
+    playAudioEffect('coin');
+    alert("🎉 오늘 출석 체크가 완료되었습니다!\n\n🎁 축하합니다! 이번 주 출석 및 과제를 100% 완수하여 주간 보너스 신용점수 1점이 추가 적립되었습니다!");
+  } else {
+    playAudioEffect('coin');
+    alert("🎉 오늘 출석 체크가 완료되었습니다!");
+  }
+  
   renderStudentPortal(studentId);
 };
 window.checkStudentAttendance = checkStudentAttendance;
