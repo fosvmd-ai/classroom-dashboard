@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Outfit:wght@300;400;500;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=1.0.2">
+  <link rel="stylesheet" href="style.css?v=1.0.3">
   <!-- Google Identity Services (GIS) SDK -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- Firebase JS SDK -->
@@ -53,16 +53,24 @@
           </div>
 
           <!-- Bottom Row: Actions row -->
-          <div class="header-actions-timer-row">
-            <!-- Action buttons -->
-            <div class="header-actions-container">
-              <button class="back-btn" id="btn-theme-toggle" onclick="toggleTheme()" style="background:#6366f1; border-color:#4f46e5; font-weight:bold; cursor:pointer;">🌗 화면 조명</button>
-              <button class="back-btn" id="btn-volume-toggle" onclick="toggleVolume()" style="background:#f59e0b; border-color:#d97706; font-weight:bold; cursor:pointer;">🔊 소리 켬</button>
-              <button class="back-btn" onclick="openPickerModal()" style="background:#ec4899; border-color:#db2777; font-weight:bold; cursor:pointer;">🎲 발표자 추첨</button>
-              <button class="back-btn" onclick="openTimerModal()" style="background:#10b981; border-color:#059669; font-weight:bold; cursor:pointer;">⏱️ 모둠 타이머</button>
-              <button class="back-btn" id="btn-header-sync" onclick="syncWithGoogleDriveManual()" style="background:#0f172a; border-color:#334155; font-weight:bold; cursor:pointer; display:none; align-items:center; gap:6px;">🔄 드라이브 동기화</button>
-              <a href="#student-login" class="back-btn" style="background:#2563eb; border-color:#3b82f6; text-decoration:none; text-align:center;">🛡️ 학생 수첩 조회</a>
-              <button class="back-btn" style="background:#475569; border-color:#64748b; font-weight:bold; cursor:pointer;" onclick="copyStudentPortalLink()">📋 링크 복사</button>
+          <div class="header-actions-timer-row" style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <!-- Group 1: 교실 도구 -->
+            <div class="header-btn-group" title="교실 도구">
+              <button class="header-utility-btn" onclick="openPickerModal()">🎲 발표자 추첨</button>
+              <button class="header-utility-btn" onclick="openTimerModal()">⏱️ 모둠 타이머</button>
+            </div>
+            
+            <!-- Group 2: 기기 및 동기화 제어 -->
+            <div class="header-btn-group" title="기기 및 동기화 제어">
+              <button class="header-utility-btn" id="btn-theme-toggle" onclick="toggleTheme()">🌗 화면 조명</button>
+              <button class="header-utility-btn" id="btn-volume-toggle" onclick="toggleVolume()">🔊 소리 켬</button>
+              <button class="header-utility-btn" id="btn-header-sync" onclick="syncWithGoogleDriveManual()" style="display:none;">🔄 드라이브 동기화</button>
+            </div>
+            
+            <!-- Group 3: 학생 포털 연동 -->
+            <div class="header-btn-group" title="학생 포털 연동">
+              <a href="#student-login" class="header-utility-btn" style="text-decoration:none;">🛡️ 학생 수첩 조회</a>
+              <button class="header-utility-btn" onclick="copyStudentPortalLink()">📋 링크 복사</button>
             </div>
           </div>
         </div>
@@ -89,36 +97,51 @@
           </div>
         </div>
 
-        <div class="section-header">
-          <div style="display:flex; align-items:center; gap:16px;">
-            <h2 id="dashboard-date-title">👥 우리 반 학생 현황 (오늘)</h2>
-            <div class="dashboard-date-picker-area" style="display:flex; align-items:center; gap:8px;">
-              <input type="date" id="dashboard-date-picker" onchange="changeDashboardDate(this.value)" style="padding:6px 12px; font-size:14px; border:1px solid #cbd5e1; border-radius:var(--radius-sm); outline:none; font-family:var(--font-main); background-color:white; color:var(--text-main);">
-              <button class="btn-secondary" style="padding:6px 12px; font-size:13px; font-weight:bold; border-radius:var(--radius-sm);" onclick="resetDashboardDateToToday()">오늘로</button>
-              <button class="btn-success" style="padding:6px 12px; font-size:13px; font-weight:bold; border-radius:var(--radius-sm);" onclick="openCreateAssignmentModal(currentDashboardDate)">📝 과제 생성</button>
-              <button class="btn-danger" style="padding:6px 12px; font-size:13px; font-weight:bold; border-radius:var(--radius-sm);" onclick="deleteDashboardAssignments()">🗑️ 과제 삭제</button>
-              <button id="btn-all-unsubmitted-deduct" class="btn-danger hidden" style="padding:6px 12px; font-size:13px; font-weight:bold; border-radius:var(--radius-sm);" onclick="allUnsubmittedDeduct(currentDashboardDate)">📉 전체 미제출 감점</button>
+        <!-- 📅 과제 일일 제어판 및 배치/보기 제어판 (가시성 개선) -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 16px; margin-bottom: 20px;">
+          <!-- Card A: 과제 관리 및 날짜 조작 -->
+          <div class="control-panel-card" style="margin-bottom: 0; flex: 1;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <h2 id="dashboard-date-title" style="font-size: 15px; font-weight: 800; color: var(--text-main); margin: 0;">📅 과제 현황 날짜 관리</h2>
+              <p style="font-size: 11px; color: var(--text-muted); margin: 0;">원하는 날짜의 과제를 생성하거나 삭제 관리합니다.</p>
+            </div>
+            <div class="dashboard-date-picker-area" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <input type="date" id="dashboard-date-picker" onchange="changeDashboardDate(this.value)" style="padding: 8px 12px; font-size: 13px; border: 1px solid #cbd5e1; border-radius: 8px; outline: none; background-color: white; color: var(--text-main); font-weight: 700; height: 38px;">
+              <button class="btn-secondary" style="padding: 0 14px; font-size: 12px; font-weight: bold; border-radius: 8px; height: 38px;" onclick="resetDashboardDateToToday()">오늘로</button>
+              <button class="btn-success" style="padding: 0 14px; font-size: 12px; font-weight: bold; border-radius: 8px; height: 38px;" onclick="openCreateAssignmentModal(currentDashboardDate)">📝 과제 생성</button>
+              <button class="btn-danger" style="padding: 0 14px; font-size: 12px; font-weight: bold; border-radius: 8px; height: 38px;" onclick="deleteDashboardAssignments()">🗑️ 과제 삭제</button>
+              <button id="btn-all-unsubmitted-deduct" class="btn-danger hidden" style="padding: 0 14px; font-size: 12px; font-weight: bold; border-radius: 8px; height: 38px; background-color: #ef4444; border-color: #ef4444;" onclick="allUnsubmittedDeduct(currentDashboardDate)">📉 미제출 감점</button>
             </div>
           </div>
-          <div style="display:flex; align-items:center; gap:12px;">
-            <!-- 학생 배치 그리드 조절 셀렉터 -->
-            <div id="grid-columns-select-wrapper" style="display:flex; align-items:center; gap:6px;">
-              <span class="legend-label" style="font-size:13px; font-weight:700; color:var(--text-muted);">그리드 배치:</span>
-              <select id="grid-columns-select" onchange="changeGridColumns(this.value)" style="padding:6px 12px; font-size:14px; font-weight:bold; border:1px solid #cbd5e1; border-radius:8px; outline:none; font-family:var(--font-main); background-color:white; color:var(--text-main); cursor:pointer; height:44px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                <option value="4">한 줄에 4명</option>
-                <option value="5">한 줄에 5명</option>
-                <option value="6">한 줄에 6명</option>
-                <option value="7" selected>한 줄에 7명</option>
-                <option value="8">한 줄에 8명</option>
-              </select>
+
+          <!-- Card B: 화면 배치 및 보기 모드 설정 -->
+          <div class="control-panel-card" style="margin-bottom: 0; flex: 1;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <h2 style="font-size: 15px; font-weight: 800; color: var(--text-main); margin: 0;">⚙️ 화면 배치 및 보기 모드</h2>
+              <p style="font-size: 11px; color: var(--text-muted); margin: 0;">학생 카드 정렬 방식과 현황 뷰 방식을 전환합니다.</p>
             </div>
-            
-            <span class="legend">🟢 완료 | ⚪ 미완료</span>
-            <div class="view-mode-toggle" style="display:flex; align-items:center; gap:4px; background:#e2e8f0; padding:4px; border-radius:10px; border:1px solid #cbd5e1; height:44px;">
-              <button id="btn-view-students" class="btn-toggle" onclick="setDashboardViewMode('students')" style="padding:6px 16px; font-size:15px; font-weight:bold; border-radius:8px; border:none; cursor:pointer; background:#ffffff; color:var(--text-main); box-shadow:0 1px 3px rgba(0,0,0,0.1); height:100%; display:inline-flex; align-items:center;">👥 학생별</button>
-              <button id="btn-view-unsubmitted" class="btn-toggle" onclick="setDashboardViewMode('unsubmitted')" style="padding:6px 16px; font-size:15px; font-weight:bold; border-radius:8px; border:none; cursor:pointer; background:transparent; color:var(--text-muted); height:100%; display:inline-flex; align-items:center;">📚 과제별 미제출자</button>
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+              <!-- 학생 배치 그리드 조절 셀렉터 -->
+              <div id="grid-columns-select-wrapper" style="display: flex; align-items: center; gap: 6px;">
+                <select id="grid-columns-select" onchange="changeGridColumns(this.value)" style="padding: 8px 12px; font-size: 13px; font-weight: bold; border: 1px solid #cbd5e1; border-radius: 8px; outline: none; background-color: white; color: var(--text-main); cursor: pointer; height: 38px; box-shadow: var(--shadow-sm);">
+                  <option value="4">한 줄에 4명</option>
+                  <option value="5">한 줄에 5명</option>
+                  <option value="6">한 줄에 6명</option>
+                  <option value="7" selected>한 줄에 7명</option>
+                  <option value="8">한 줄에 8명</option>
+                </select>
+              </div>
+              
+              <div class="view-mode-toggle" style="display: flex; align-items: center; gap: 4px; background: #e2e8f0; padding: 3px; border-radius: 8px; border: 1px solid #cbd5e1; height: 38px;">
+                <button id="btn-view-students" class="btn-toggle" onclick="setDashboardViewMode('students')" style="padding: 0 12px; font-size: 13px; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; background: #ffffff; color: var(--text-main); box-shadow: 0 1px 2px rgba(0,0,0,0.05); height: 100%; display: inline-flex; align-items: center;">👥 학생별</button>
+                <button id="btn-view-unsubmitted" class="btn-toggle" onclick="setDashboardViewMode('unsubmitted')" style="padding: 0 12px; font-size: 13px; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; background: transparent; color: var(--text-muted); height: 100%; display: inline-flex; align-items: center;">📚 과제별 미제출</button>
+              </div>
             </div>
           </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
+          <span class="legend" style="font-size: 12px; font-weight: bold; color: var(--text-muted);">🟢 완료 | ⚪ 미완료</span>
         </div>
         <!-- 과제 이모지 매핑 설명 칸 -->
         <div id="assignment-legend-bar" class="assignment-legend-bar hidden"></div>
@@ -256,18 +279,17 @@
       </div>
       <p class="panel-desc">학생들의 누적 신용 점수를 직접 수정하거나 검색/필터링하고, 여러 학생을 동시에 선택하여 일괄 점수를 부여할 수 있습니다.</p>
 
-      <!-- 학생 검색 및 일괄 점수 부여 패널 -->
-      <div class="student-management-controls-panel" style="display: flex; flex-direction: column; gap: 16px; margin: 15px 0 25px 0; padding: 20px; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: rgba(99, 102, 241, 0.03); box-shadow: var(--shadow-premium);">
-        
+      <!-- ⚡ 일괄 점수 및 명단 검색 제어판 (가시성 개선) -->
+      <div class="batch-control-card">
         <!-- 상단 행: 검색 및 등급 필터 -->
         <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: space-between;">
-          <div style="display: flex; gap: 10px; align-items: center; flex: 1; min-width: 250px;">
-            <label style="font-weight: bold; color: var(--text-main); font-size: 14px;">🔍 학생 검색:</label>
-            <input type="text" id="roster-search-input" oninput="filterRosterList()" placeholder="학번 또는 이름 입력..." style="flex: 1; padding: 8px 12px; font-size: 13px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); outline: none; background: var(--bg-card); color: var(--text-main);">
+          <div style="display: flex; gap: 10px; align-items: center; flex: 1; min-width: 280px;">
+            <label style="font-weight: 800; color: var(--text-main); font-size: 14px; white-space: nowrap;">🔍 학생 검색</label>
+            <input type="text" id="roster-search-input" oninput="filterRosterList()" placeholder="학번 또는 이름 입력..." style="width: 100%; padding: 8px 12px; font-size: 13px; border: 1px solid var(--border-color); border-radius: 8px; outline: none; background: var(--bg-card); color: var(--text-main); height: 38px;">
           </div>
-          <div style="display: flex; gap: 10px; align-items: center; min-width: 200px;">
-            <label style="font-weight: bold; color: var(--text-main); font-size: 14px;">🏆 등급 필터:</label>
-            <select id="roster-grade-filter" onchange="filterRosterList()" style="padding: 8px 12px; font-size: 13px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); outline: none; background: var(--bg-card); color: var(--text-main); font-weight: bold;">
+          <div style="display: flex; gap: 10px; align-items: center; min-width: 220px;">
+            <label style="font-weight: 800; color: var(--text-main); font-size: 14px; white-space: nowrap;">🏆 등급 필터</label>
+            <select id="roster-grade-filter" onchange="filterRosterList()" style="width: 100%; padding: 8px 12px; font-size: 13px; border: 1px solid var(--border-color); border-radius: 8px; outline: none; background: var(--bg-card); color: var(--text-main); font-weight: bold; height: 38px; cursor: pointer;">
               <option value="all">전체 등급 보기</option>
             </select>
           </div>
@@ -275,31 +297,31 @@
 
         <!-- 하단 행: 일괄 점수 부여 (체크된 학생 대상) -->
         <div style="padding-top: 15px; border-top: 1px dashed var(--border-color); display: flex; flex-direction: column; gap: 12px;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 14px; font-weight: 800; color: #4f46e5;">⚡ 일괄 점수/사유 부여</span>
-            <span style="font-size: 12px; color: var(--text-muted);">(아래 테이블에서 학생을 선택한 후 클릭하세요)</span>
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <span style="font-size: 14px; font-weight: 800; color: #4f46e5; display: flex; align-items: center; gap: 4px;">⚡ 일괄 점수/사유 부여</span>
+            <span style="font-size: 11px; color: var(--text-muted);">(아래 테이블에서 학생을 다중 선택한 후 가감할 수 있습니다)</span>
           </div>
           
           <!-- 일괄 변동 사유 및 직접 가감 -->
           <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
-            <input type="text" id="batch-reason-input" placeholder="일괄 점수 변동 사유 입력 (예: 청소 구역 청소 완료)" style="flex: 1; min-width: 250px; padding: 8px 12px; font-size: 13px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); outline: none; background: var(--bg-card); color: var(--text-main);">
-            <div style="display: flex; gap: 6px;">
-              <button class="btn-success" onclick="applyBatchPoints(1)" style="padding: 8px 14px; font-size: 13px; font-weight: bold;">➕ 1점 부여</button>
-              <button class="btn-success" onclick="applyBatchPoints(3)" style="padding: 8px 14px; font-size: 13px; font-weight: bold; background-color: #10b981; border-color: #10b981;">➕ 3점 부여</button>
-              <button class="btn-danger" onclick="applyBatchPoints(-1)" style="padding: 8px 14px; font-size: 13px; font-weight: bold;">➖ 1점 감점</button>
-              <button class="btn-danger" onclick="applyBatchPoints(-3)" style="padding: 8px 14px; font-size: 13px; font-weight: bold; background-color: #ef4444; border-color: #ef4444;">➖ 3점 감점</button>
+            <input type="text" id="batch-reason-input" placeholder="점수 변동 사유를 입력하세요 (예: 수업 적극 참여)" style="flex: 1; min-width: 250px; padding: 8px 12px; font-size: 13px; border: 1px solid var(--border-color); border-radius: 8px; outline: none; background: var(--bg-card); color: var(--text-main); height: 38px;">
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <button class="btn-success" onclick="applyBatchPoints(1)" style="padding: 0 14px; font-size: 13px; font-weight: bold; height: 38px; border-radius: 8px;">➕ 1점</button>
+              <button class="btn-success" onclick="applyBatchPoints(3)" style="padding: 0 14px; font-size: 13px; font-weight: bold; background-color: #10b981; border-color: #10b981; height: 38px; border-radius: 8px;">➕ 3점</button>
+              <button class="btn-danger" onclick="applyBatchPoints(-1)" style="padding: 0 14px; font-size: 13px; font-weight: bold; height: 38px; border-radius: 8px;">➖ 1점</button>
+              <button class="btn-danger" onclick="applyBatchPoints(-3)" style="padding: 0 14px; font-size: 13px; font-weight: bold; background-color: #ef4444; border-color: #ef4444; height: 38px; border-radius: 8px;">➖ 3점</button>
             </div>
           </div>
 
-          <!-- 자주 쓰는 추천 점수 템플릿 버튼들 -->
+          <!-- 자주 쓰는 추천 점수 템플릿 버튼들 (알약 스타일 적용) -->
           <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px;">
-            <span style="font-size: 12px; font-weight: bold; color: var(--text-muted);">추천 템플릿:</span>
-            <button class="btn-secondary" onclick="setBatchTemplate('🎙️ 발표 우수', 1)" style="padding: 4px 10px; font-size: 11px; border-radius: 20px; font-weight: bold; cursor: pointer;">🎙️ 발표 우수 (+1)</button>
-            <button class="btn-secondary" onclick="setBatchTemplate('📝 과제 수행 우수', 1)" style="padding: 4px 10px; font-size: 11px; border-radius: 20px; font-weight: bold; cursor: pointer;">📝 과제 수행 (+1)</button>
-            <button class="btn-secondary" onclick="setBatchTemplate('🤫 수업 태도 및 경청 우수', 1)" style="padding: 4px 10px; font-size: 11px; border-radius: 20px; font-weight: bold; cursor: pointer;">🤫 태도 우수 (+1)</button>
-            <button class="btn-secondary" onclick="setBatchTemplate('🤝 학급 모둠 활동 적극 협동', 2)" style="padding: 4px 10px; font-size: 11px; border-radius: 20px; font-weight: bold; cursor: pointer;">🤝 모둠 협동 (+2)</button>
-            <button class="btn-secondary" onclick="setBatchTemplate('💬 수업 시간 중 잡담 및 태도 불량', -1)" style="padding: 4px 10px; font-size: 11px; border-radius: 20px; font-weight: bold; cursor: pointer; color: #ef4444; border-color: #fca5a5;">💬 잡담/떠듦 (-1)</button>
-            <button class="btn-secondary" onclick="setBatchTemplate('🎒 수업 준비물 미준수', -1)" style="padding: 4px 10px; font-size: 11px; border-radius: 20px; font-weight: bold; cursor: pointer; color: #ef4444; border-color: #fca5a5;">🎒 준비물 미참 (-1)</button>
+            <span style="font-size: 12px; font-weight: bold; color: var(--text-muted); margin-right: 4px;">추천 템플릿:</span>
+            <button class="pill-template-btn" onclick="setBatchTemplate('🎙️ 발표 우수', 1)">🎙️ 발표 우수 (+1)</button>
+            <button class="pill-template-btn" onclick="setBatchTemplate('📝 과제 수행 우수', 1)">📝 과제 수행 (+1)</button>
+            <button class="pill-template-btn" onclick="setBatchTemplate('🤫 수업 태도 및 경청 우수', 1)">🤫 태도 우수 (+1)</button>
+            <button class="pill-template-btn" onclick="setBatchTemplate('🤝 학급 모둠 활동 적극 협동', 2)">🤝 모둠 협동 (+2)</button>
+            <button class="pill-template-btn deduct" onclick="setBatchTemplate('💬 수업 시간 중 잡담 및 태도 불량', -1)">💬 잡담/떠듦 (-1)</button>
+            <button class="pill-template-btn deduct" onclick="setBatchTemplate('🎒 수업 준비물 미준수', -1)">🎒 준비물 미참 (-1)</button>
           </div>
         </div>
       </div>
@@ -375,184 +397,197 @@
       </div>
     </div>
 
-    <!-- 탭 4: 신용등급 기준 설정 -->
-    <div id="tab-content-grades" class="tab-content panel-card hidden">
-      <div class="panel-header">
-        <h2>⚙️ 기본설정 (신용등급 및 동기화 관리)</h2>
-        <div class="panel-actions">
-          <button class="btn-primary" onclick="openGradesBulkModal()">📋 등급 일괄 등록/수정</button>
-          <button class="btn-secondary" onclick="addNewGradeRow()">➕ 등급 추가</button>
-          <button class="btn-success" onclick="saveGradesConfig()">💾 등급 설정 저장하기</button>
-        </div>
-      </div>
-      <p class="panel-desc">점수 구간별 신용등급의 등급명과 기준 커트라인 점수를 설정할 수 있습니다. 우측 ❌ 버튼을 통해 등급 개수를 자유롭게 가감할 수 있습니다.</p>
-
-      <div class="table-responsive">
-        <table class="admin-table">
-          <thead>
-            <tr>
-              <th width="150px">선택형 이모지</th>
-              <th width="200px">등급 이미지 등록 (업로드 시 이모지 대신 사용)</th>
-              <th>등급명</th>
-              <th>최소 요구 점수</th>
-              <th width="100px">삭제</th>
-            </tr>
-          </thead>
-          <tbody id="grades-table-body">
-            <!-- JS 동적 생성 -->
-          </tbody>
-        </table>
-      </div>
-
-      <!-- 📂 데이터 백업 및 복원 -->
-      <div style="margin-top: 30px; padding-top: 20px; border-top: 2px dashed var(--border-color); display: flex; flex-direction: column; gap: 16px;">
-        <!-- 데이터 백업 & 복원 행 -->
-        <div style="display: flex; align-items: center; gap: 16px; justify-content: flex-end; flex-wrap: wrap; margin-top: 4px;">
-          <h3 style="font-size: 15px; font-weight: 700; color: var(--text-main); margin: 0; margin-right: auto;">📂 데이터 관리 및 학기 초기화:</h3>
-          <button class="btn-success" onclick="exportClassroomData()" style="padding: 8px 16px; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">📥 데이터 내보내기 (백업)</button>
-          <button class="btn-secondary" onclick="triggerImportFileInput()" style="padding: 8px 16px; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; background-color: #4f46e5; border-color: #4f46e5;">📤 데이터 가져오기 (복원)</button>
-          <button class="btn-delete" onclick="archiveAndResetNewSemester()" style="padding: 8px 16px; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; background-color: #dc2626; border-color: #dc2626; color: white;">🌱 새 학기 전환 (초기화)</button>
-          <input type="file" id="import-data-file-input" onchange="importClassroomData(event)" accept=".json" style="display: none;">
-        </div>
-      </div>
-
-      <!-- ☁️ 클라우드 동기화 모드 선택 및 설정 -->
-      <div style="margin-top: 30px; padding-top: 20px; border-top: 2px dashed var(--border-color); display: flex; flex-direction: column; gap: 16px;">
-        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;">
-          <h3 style="font-size: 15px; font-weight: 700; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 6px;">
-            ☁️ 클라우드 동기화 모드 설정
-          </h3>
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <label style="font-size: 13px; font-weight: bold; color: var(--text-muted);">동기화 모드: </label>
-            <select id="sync-mode-selector" onchange="changeSyncMode(this.value)" style="padding: 6px 12px; font-size: 13px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-main); font-weight: bold; outline: none;">
-              <option value="local" selected>로컬 전용 모드 (오프라인)</option>
-              <option value="gdrive">구글 드라이브 (개인 백업용)</option>
-              <option value="firebase">파이어베이스 (실시간 학생 조회 지원)</option>
-            </select>
+    <!-- 탭 4: 기본 설정 (등급 및 시스템 관리) -->
+    <div id="tab-content-grades" class="tab-content panel-card hidden" style="padding: 24px;">
+      
+      <!-- Card 1: 🏆 신용등급 기준 설정 (Full Width Card) -->
+      <div class="settings-card" style="margin-bottom: 24px;">
+        <div class="settings-card-header">
+          <h3>🏆 신용등급 기준 설정</h3>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-primary" onclick="openGradesBulkModal()" style="padding: 6px 12px; font-size: 12px; font-weight: bold; border-radius: 6px;">📋 일괄 등록</button>
+            <button class="btn-secondary" onclick="addNewGradeRow()" style="padding: 6px 12px; font-size: 12px; font-weight: bold; border-radius: 6px;">➕ 등급 추가</button>
+            <button class="btn-success" onclick="saveGradesConfig()" style="padding: 6px 12px; font-size: 12px; font-weight: bold; border-radius: 6px;">💾 설정 저장</button>
           </div>
         </div>
+        <p class="settings-card-desc">점수 구간별 신용등급의 등급명과 기준 커트라인 점수를 설정할 수 있습니다. 우측 ❌ 버튼을 통해 등급 개수를 가감합니다.</p>
 
-        <div id="sync-status-container" style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: bold; color: var(--text-muted);">
-          <span id="sync-status-badge" class="sync-status-badge badge-offline"></span>
-          <span id="sync-status-text">로컬 모드로 작동 중 (오프라인)</span>
+        <div class="table-responsive" style="margin-top: 8px;">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th width="150px">선택형 이모지</th>
+                <th width="200px">등급 이미지 등록 (업로드 시 이모지 대신 사용)</th>
+                <th>등급명</th>
+                <th>최소 요구 점수</th>
+                <th width="100px">삭제</th>
+              </tr>
+            </thead>
+            <tbody id="grades-table-body">
+              <!-- JS 동적 생성 -->
+            </tbody>
+          </table>
         </div>
+      </div>
 
-        <!-- 일렉트론 전용 설정 영역 (데스크톱 앱일 때만 동적으로 노출) -->
-        <div id="electron-only-settings" class="hidden" style="margin-top: 5px; padding: 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-card); display: flex; align-items: center; gap: 10px;">
-          <span style="font-size: 16px;">📌</span>
-          <label style="font-size: 13px; font-weight: bold; color: var(--text-main); display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; width: 100%;">
-            <input type="checkbox" id="electron-always-on-top" onchange="handleAlwaysOnTopChange(this.checked)" style="width: 16px; height: 16px; cursor: pointer;">
-            대시보드 항상 위에 표시 (Always on Top)
-          </label>
-        </div>
-
-        <!-- 1. 구글 드라이브 세부 설정 카드 -->
-        <div id="gdrive-config-card" class="hidden" style="display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--border-color); padding: 16px; border-radius: var(--radius-md); background: rgba(0, 0, 0, 0.01);">
-          <p style="font-size: 13px; color: var(--text-muted); margin: 0; line-height: 1.5;">
-            교사 개인의 구글 드라이브(Google Drive)에 백업 파일(<code>classroom_dashboard_backup.json</code>)을 저장하여 다른 브라우저나 기기에서 손쉽게 데이터를 연동합니다.
-          </p>
-          <div style="display: flex; flex-direction: column; gap: 4px; max-width: 600px;">
-            <label style="font-size: 12px; font-weight: bold; color: var(--text-muted);">Google Client ID (구글 클라우드 콘솔 발급)</label>
-            <input type="text" id="gdrive-client-id" placeholder="클라이언트 ID 입력 (.apps.googleusercontent.com)" style="padding: 8px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 13px; outline: none; background: var(--bg-card); color: var(--text-main);">
-          </div>
-          <div id="google-drive-auth-section" style="padding: 12px; border: 1px dashed var(--border-color); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; background: var(--bg-card);">
-            <div style="display: flex; flex-direction: column; gap: 2px;">
-              <span style="font-size: 13px; font-weight: bold; color: var(--text-main);">🔑 구글 계정 연동 상태</span>
-              <span id="google-drive-state-desc" style="font-size: 11px; color: var(--text-muted);">계정 연동 버튼을 눌러 로그인해 주세요.</span>
-            </div>
-            <div id="google-drive-user-profile" style="display: flex; align-items: center; gap: 12px;">
-              <button id="btn-gdrive-login" onclick="loginWithGoogleDrive()" style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid #dadce0; border-radius: 4px; background: white; color: #3c4043; font-size: 13px; font-weight: bold; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
-                구글 계정 로그인
-              </button>
+      <!-- Settings Grid Layout: 2 Columns for other settings -->
+      <div class="settings-grid-layout">
+        
+        <!-- Card 2: ☁️ 실시간 클라우드 동기화 설정 -->
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <h3>☁️ 실시간 클라우드 동기화 설정</h3>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <select id="sync-mode-selector" onchange="changeSyncMode(this.value)" style="padding: 6px 12px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-main); font-weight: bold; outline: none; cursor: pointer;">
+                <option value="local">로컬 전용 (오프라인)</option>
+                <option value="gdrive">구글 드라이브 (백업)</option>
+                <option value="firebase">파이어베이스 (실시간)</option>
+              </select>
             </div>
           </div>
-          <div style="display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 4px;">
-            <button class="btn-success" onclick="copyTeacherDashboardLink()" id="btn-gdrive-share" style="padding: 8px 16px; font-size: 13px; cursor: pointer;">🔗 설정 포함 교사 링크 복사</button>
-            <button class="btn-secondary hidden" onclick="disconnectGoogleDrive()" id="btn-gdrive-disconnect" style="padding: 8px 16px; font-size: 13px; cursor: pointer; background: #64748b; border-color: #64748b;">❌ 연동 해제 및 로컬 모드 전환</button>
-            <button class="btn-primary" onclick="saveGoogleDriveConfig()" style="padding: 8px 16px; font-size: 13px; cursor: pointer;">💾 구글 드라이브 설정 저장</button>
-          </div>
-        </div>
-
-        <!-- 2. 파이어베이스 세부 설정 카드 -->
-        <div id="firebase-config-card" class="hidden" style="display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--border-color); padding: 16px; border-radius: var(--radius-md); background: rgba(0, 0, 0, 0.01);">
-          <p style="font-size: 13px; color: var(--text-muted); margin: 0; line-height: 1.5;">
-            구글 파이어베이스(Firebase Realtime DB)를 활용해 여러 기기(교사 PC, 태블릿, 학생 모바일) 간에 점수 데이터를 실시간 동기화합니다. 기본 제공되는 공유 데이터베이스를 이용하면 구글 로그인만으로 즉시 연동됩니다.
-          </p>
+          <p class="settings-card-desc">클라우드를 활용해 여러 기기 간에 학급 데이터를 실시간 동기화하거나 백업합니다.</p>
           
-          <!-- 간편 연동 구글 로그인 영역 -->
-          <div id="firebase-google-auth-section" style="padding: 12px; border: 1px dashed var(--border-color); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; background: var(--bg-card);">
-            <div style="display: flex; flex-direction: column; gap: 2px;">
-              <span style="font-size: 13px; font-weight: bold; color: var(--text-main);">🔑 구글 계정으로 3초만에 연동하기</span>
-              <span style="font-size: 11px; color: var(--text-muted);">로그인 시 계정 고유 ID가 연동 키로 자동 지정되어 바로 사용 가능합니다.</span>
-            </div>
-            <div id="firebase-user-profile" style="display: flex; align-items: center; gap: 12px;">
-              <button id="btn-fb-google-login" onclick="loginWithFirebaseGoogle()" style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid #dadce0; border-radius: 4px; background: white; color: #3c4043; font-size: 13px; font-weight: bold; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
-                구글 계정으로 연동하기
-              </button>
-            </div>
+          <div id="sync-status-container" style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: bold; color: var(--text-muted); margin-top: -4px;">
+            <span id="sync-status-badge" class="sync-status-badge badge-offline"></span>
+            <span id="sync-status-text">로컬 모드로 작동 중 (오프라인)</span>
           </div>
 
-          <!-- 수동 연동용 학급 연동 키 -->
-          <div id="fb-manual-sync-key-section" style="display: flex; flex-direction: column; gap: 4px; max-width: 300px;">
-            <label style="font-size: 12px; font-weight: bold; color: var(--text-muted);">학급 연동 키 (Classroom Key)</label>
-            <input type="text" id="fb-sync-key" placeholder="예: grade-3-class-1" style="padding: 8px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 13px; outline: none; background: var(--bg-card); color: var(--text-main); font-weight: bold;">
+          <!-- 일렉트론 전용 설정 영역 (데스크톱 앱일 때만 동적으로 노출) -->
+          <div id="electron-only-settings" class="hidden" style="padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: rgba(99,102,241,0.03); display: flex; align-items: center; gap: 8px; font-size: 12px;">
+            <span style="font-size: 14px;">📌</span>
+            <label style="font-weight: bold; color: var(--text-main); display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; margin: 0; width: 100%;">
+              <input type="checkbox" id="electron-always-on-top" onchange="handleAlwaysOnTopChange(this.checked)" style="width: 15px; height: 15px; cursor: pointer;">
+              대시보드 항상 위에 표시 (Always on Top)
+            </label>
           </div>
 
-          <!-- 고급 설정 토글 버튼 -->
-          <div style="margin-top: 5px;">
-            <a href="javascript:void(0)" onclick="toggleFbAdvancedFields()" id="btn-fb-advanced-toggle" style="font-size: 12px; color: #4f46e5; text-decoration: none; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;">🛠️ 개인 파이어베이스 서버 정보 설정 (고급 설정)</a>
-          </div>
-
-          <!-- 개인 서버용 고급 설정 필드 (기본 숨김) -->
-          <div id="fb-advanced-config-fields" class="hidden" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; padding: 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: rgba(0,0,0,0.02);">
+          <!-- 1. 구글 드라이브 세부 설정 카드 -->
+          <div id="gdrive-config-card" class="hidden" style="display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--border-color); padding: 14px; border-radius: 8px; background: rgba(0, 0, 0, 0.01);">
+            <p style="font-size: 12px; color: var(--text-muted); margin: 0; line-height: 1.4;">
+              교사 개인의 구글 드라이브(Google Drive)에 백업 파일(<code>classroom_dashboard_backup.json</code>)을 저장하여 다른 브라우저나 기기에서 손쉽게 데이터를 연동합니다.
+            </p>
             <div style="display: flex; flex-direction: column; gap: 4px;">
-              <label style="font-size: 12px; font-weight: bold; color: var(--text-muted);">Database URL</label>
-              <input type="text" id="fb-db-url" placeholder="https://your-project.firebaseio.com" style="padding: 8px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 13px; outline: none; background: var(--bg-card); color: var(--text-main);">
+              <label style="font-size: 11px; font-weight: bold; color: var(--text-muted);">Google Client ID</label>
+              <input type="text" id="gdrive-client-id" placeholder="클라이언트 ID 입력 (.apps.googleusercontent.com)" style="padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 12px; outline: none; background: var(--bg-card); color: var(--text-main);">
             </div>
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-              <label style="font-size: 12px; font-weight: bold; color: var(--text-muted);">API Key</label>
-              <input type="password" id="fb-api-key" placeholder="AIzaSy..." style="padding: 8px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 13px; outline: none; background: var(--bg-card); color: var(--text-main);">
+            <div id="google-drive-auth-section" style="padding: 10px; border: 1px dashed var(--border-color); border-radius: 6px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; background: var(--bg-card);">
+              <div style="display: flex; flex-direction: column;">
+                <span style="font-size: 12px; font-weight: bold; color: var(--text-main);">🔑 구글 계정 연동 상태</span>
+                <span id="google-drive-state-desc" style="font-size: 11px; color: var(--text-muted);">계정 연동 버튼을 눌러 로그인해 주세요.</span>
+              </div>
+              <div id="google-drive-user-profile">
+                <button id="btn-gdrive-login" onclick="loginWithGoogleDrive()" style="display: flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid #dadce0; border-radius: 4px; background: white; color: #3c4043; font-size: 12px; font-weight: bold; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                  구글 로그인
+                </button>
+              </div>
             </div>
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-              <label style="font-size: 12px; font-weight: bold; color: var(--text-muted);">Project ID</label>
-              <input type="text" id="fb-project-id" placeholder="my-classroom-project" style="padding: 8px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 13px; outline: none; background: var(--bg-card); color: var(--text-main);">
+            <div style="display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; margin-top: 4px;">
+              <button class="btn-success" onclick="copyTeacherDashboardLink()" id="btn-gdrive-share" style="padding: 6px 12px; font-size: 12px; cursor: pointer; border-radius: 6px;">🔗 교사 링크 복사</button>
+              <button class="btn-secondary hidden" onclick="disconnectGoogleDrive()" id="btn-gdrive-disconnect" style="padding: 6px 12px; font-size: 12px; cursor: pointer; background: #64748b; border-color: #64748b; border-radius: 6px;">❌ 연동 해제</button>
+              <button class="btn-primary" onclick="saveGoogleDriveConfig()" style="padding: 6px 12px; font-size: 12px; cursor: pointer; border-radius: 6px;">💾 설정 저장</button>
             </div>
           </div>
 
-          <div style="display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 4px;">
-            <button class="btn-success" onclick="copyStudentPortalLink()" style="padding: 8px 16px; font-size: 13px; cursor: pointer; background: #6366f1; border-color: #4f46e5;">🔗 실시간 학생 조회용 링크 복사</button>
-            <button class="btn-success" onclick="copyTeacherDashboardLink()" id="btn-fb-share" style="padding: 8px 16px; font-size: 13px; cursor: pointer;">🔗 설정 포함 교사 링크 복사</button>
-            <button class="btn-secondary hidden" onclick="disconnectFirebase()" id="btn-fb-disconnect" style="padding: 8px 16px; font-size: 13px; cursor: pointer; background: #64748b; border-color: #64748b;">❌ 연동 해제 및 로컬 모드 전환</button>
-            <button class="btn-primary" onclick="saveFirebaseConfig()" style="padding: 8px 16px; font-size: 13px; cursor: pointer;">💾 파이어베이스 설정 저장</button>
+          <!-- 2. 파이어베이스 세부 설정 카드 -->
+          <div id="firebase-config-card" class="hidden" style="display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--border-color); padding: 14px; border-radius: 8px; background: rgba(0, 0, 0, 0.01);">
+            <p style="font-size: 12px; color: var(--text-muted); margin: 0; line-height: 1.4;">
+              Firebase 실시간 DB로 교사 대시보드와 학생용 모바일 수첩 간에 데이터를 100% 동기화합니다.
+            </p>
+            
+            <!-- 간편 연동 구글 로그인 영역 -->
+            <div id="firebase-google-auth-section" style="padding: 10px; border: 1px dashed var(--border-color); border-radius: 6px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; background: var(--bg-card);">
+              <div style="display: flex; flex-direction: column;">
+                <span style="font-size: 12px; font-weight: bold; color: var(--text-main);">🔑 구글 계정으로 간편 연동</span>
+                <span style="font-size: 11px; color: var(--text-muted);">로그인하면 학급 데이터베이스가 즉시 생성됩니다.</span>
+              </div>
+              <div id="firebase-user-profile">
+                <button id="btn-fb-google-login" onclick="loginWithFirebaseGoogle()" style="display: flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid #dadce0; border-radius: 4px; background: white; color: #3c4043; font-size: 12px; font-weight: bold; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                  구글 로그인 연동
+                </button>
+              </div>
+            </div>
+
+            <!-- 수동 연동용 학급 연동 키 -->
+            <div id="fb-manual-sync-key-section" style="display: flex; flex-direction: column; gap: 4px; max-width: 250px;">
+              <label style="font-size: 11px; font-weight: bold; color: var(--text-muted);">학급 연동 키 (Classroom Key)</label>
+              <input type="text" id="fb-sync-key" placeholder="예: grade-3-class-1" style="padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 12px; outline: none; background: var(--bg-card); color: var(--text-main); font-weight: bold;">
+            </div>
+
+            <!-- 고급 설정 토글 버튼 -->
+            <div>
+              <a href="javascript:void(0)" onclick="toggleFbAdvancedFields()" id="btn-fb-advanced-toggle" style="font-size: 11px; color: #4f46e5; text-decoration: none; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;">🛠️ 개인 파이어베이스 서버 정보 설정 (고급 설정)</a>
+            </div>
+
+            <!-- 개인 서버용 고급 설정 필드 (기본 숨김) -->
+            <div id="fb-advanced-config-fields" class="hidden" style="display: grid; grid-template-columns: 1fr; gap: 8px; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: rgba(0,0,0,0.02);">
+              <div style="display: flex; flex-direction: column; gap: 2px;">
+                <label style="font-size: 10px; font-weight: bold; color: var(--text-muted);">Database URL</label>
+                <input type="text" id="fb-db-url" placeholder="https://your-project.firebaseio.com" style="padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 11px; outline: none; background: var(--bg-card); color: var(--text-main);">
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 2px;">
+                <label style="font-size: 10px; font-weight: bold; color: var(--text-muted);">API Key</label>
+                <input type="password" id="fb-api-key" placeholder="AIzaSy..." style="padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 11px; outline: none; background: var(--bg-card); color: var(--text-main);">
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 2px;">
+                <label style="font-size: 10px; font-weight: bold; color: var(--text-muted);">Project ID</label>
+                <input type="text" id="fb-project-id" placeholder="my-classroom" style="padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 11px; outline: none; background: var(--bg-card); color: var(--text-main);">
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; margin-top: 4px;">
+              <button class="btn-success" onclick="copyStudentPortalLink()" style="padding: 6px 12px; font-size: 12px; cursor: pointer; background: #6366f1; border-color: #4f46e5; border-radius: 6px;">🔗 학생용 링크 복사</button>
+              <button class="btn-success" onclick="copyTeacherDashboardLink()" id="btn-fb-share" style="padding: 6px 12px; font-size: 12px; cursor: pointer; border-radius: 6px;">🔗 교사 링크 복사</button>
+              <button class="btn-secondary hidden" onclick="disconnectFirebase()" id="btn-fb-disconnect" style="padding: 6px 12px; font-size: 12px; cursor: pointer; background: #64748b; border-color: #64748b; border-radius: 6px;">❌ 연동 해제</button>
+              <button class="btn-primary" onclick="saveFirebaseConfig()" style="padding: 6px 12px; font-size: 12px; cursor: pointer; border-radius: 6px;">💾 설정 저장</button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- 🔒 보안 설정 (교사 및 학생 비밀번호) -->
-      <div style="margin-top: 30px; padding-top: 20px; border-top: 2px dashed var(--border-color); display: flex; flex-direction: column; gap: 16px;">
-        <h3 style="font-size: 15px; font-weight: 700; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 6px;">
-          🔒 보안 설정
-        </h3>
-        <p style="font-size: 13px; color: var(--text-muted); margin: 0; line-height: 1.5;">
-          대시보드와 학생 포털 진입에 필요한 비밀번호를 관리합니다.
-        </p>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
-          <!-- 교사 비밀번호 -->
-          <div style="display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--border-color); padding: 12px; border-radius: var(--radius-sm); background: var(--bg-card);">
-            <label style="font-size: 12px; font-weight: bold; color: var(--text-muted);">교사용 비밀번호 (대시보드 로그인용)</label>
-            <div style="display: flex; gap: 8px;">
-              <input type="password" id="teacher-passcode-input" placeholder="새 비밀번호 입력 (4자리 이상)" style="flex: 1; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 13px; outline: none; background: var(--bg-card); color: var(--text-main);">
-              <button class="btn-primary" onclick="saveTeacherPasscode()" style="padding: 8px 16px; font-size: 13px; cursor: pointer;">변경</button>
+        <!-- Right Column Grid: Security Card (Top) & Backup Card (Bottom) -->
+        <div style="display: flex; flex-direction: column; gap: 24px;">
+          
+          <!-- Card 3: 🔒 보안 및 패스코드 설정 -->
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <h3>🔒 보안 및 패스코드 설정</h3>
+            </div>
+            <p class="settings-card-desc">대시보드 관리자 인증 및 학생 포털 접속 보안 비밀번호를 설정합니다.</p>
+            
+            <div style="display: flex; flex-direction: column; gap: 14px; margin-top: 4px;">
+              <!-- 교사 비밀번호 -->
+              <div style="display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; background: var(--bg-card);">
+                <label style="font-size: 11px; font-weight: bold; color: var(--text-muted);">교사용 비밀번호 (대시보드 로그인용)</label>
+                <div style="display: flex; gap: 8px;">
+                  <input type="password" id="teacher-passcode-input" placeholder="새 비밀번호 입력 (4자리 이상)" style="flex: 1; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 12px; outline: none; background: var(--bg-card); color: var(--text-main);">
+                  <button class="btn-primary" onclick="saveTeacherPasscode()" style="padding: 0 14px; font-size: 12px; cursor: pointer; border-radius: 6px; height: 34px;">변경</button>
+                </div>
+              </div>
+              <!-- 학생 비밀번호 -->
+              <div style="display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; background: var(--bg-card);">
+                <label style="font-size: 11px; font-weight: bold; color: var(--text-muted);">학생 포털 비밀번호 (미설정 시 자동 로그인)</label>
+                <div style="display: flex; gap: 8px;">
+                  <input type="password" id="student-passcode-input" placeholder="학생 공통 비밀번호 입력" style="flex: 1; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 12px; outline: none; background: var(--bg-card); color: var(--text-main);">
+                  <button class="btn-success" onclick="saveStudentPasscode()" style="padding: 0 14px; font-size: 12px; cursor: pointer; background: #6366f1; border-color: #4f46e5; border-radius: 6px; height: 34px;">변경</button>
+                </div>
+              </div>
             </div>
           </div>
-          <!-- 학생 비밀번호 -->
-          <div style="display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--border-color); padding: 12px; border-radius: var(--radius-sm); background: var(--bg-card);">
-            <label style="font-size: 12px; font-weight: bold; color: var(--text-muted);">학생 포털 비밀번호 (미설정 시 바로 조회 가능)</label>
-            <div style="display: flex; gap: 8px;">
-              <input type="password" id="student-passcode-input" placeholder="학생 공통 비밀번호 입력" style="flex: 1; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 13px; outline: none; background: var(--bg-card); color: var(--text-main);">
-              <button class="btn-success" onclick="saveStudentPasscode()" style="padding: 8px 16px; font-size: 13px; cursor: pointer; background: #6366f1; border-color: #4f46e5;">변경</button>
+
+          <!-- Card 4: 💾 데이터 백업 및 학기 초기화 -->
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <h3>💾 데이터 백업 및 학기 초기화</h3>
+            </div>
+            <p class="settings-card-desc">학급 전체 데이터베이스의 오프라인 백업 파일을 내보내거나 가져오고, 새 학기를 시작하기 위해 초기화를 수행합니다.</p>
+            
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 6px;">
+              <button class="btn-success" onclick="exportClassroomData()" style="padding: 10px 16px; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 8px; width: 100%;">📥 데이터 내보내기 (백업)</button>
+              <button class="btn-secondary" onclick="triggerImportFileInput()" style="padding: 10px 16px; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background-color: #4f46e5; border-color: #4f46e5; border-radius: 8px; width: 100%; color: white;">📤 데이터 가져오기 (복원)</button>
+              <button class="btn-delete" onclick="archiveAndResetNewSemester()" style="padding: 10px 16px; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background-color: #dc2626; border-color: #dc2626; color: white; border-radius: 8px; width: 100%;">🌱 새 학기 전환 (초기화)</button>
+              <input type="file" id="import-data-file-input" onchange="importClassroomData(event)" accept=".json" style="display: none;">
             </div>
           </div>
+          
         </div>
       </div>
     </div>
