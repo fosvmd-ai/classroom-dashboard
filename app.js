@@ -3101,10 +3101,16 @@ const migrateStudentData = (oldStudents, newStudents) => {
   studentMapping.forEach(({ newS, oldS, isNew }) => {
     if (isNew) {
       newS.total_points = 0;
-      newS.can_manage_tasks = false;
+      if (newS.can_manage_tasks === undefined) {
+        newS.can_manage_tasks = false;
+      }
     } else {
       newS.total_points = oldS.total_points || 0;
-      newS.can_manage_tasks = oldS.can_manage_tasks === true; // 권한 인계
+      // saveRoster를 통해 UI에서 새로 권한을 설정해 온 경우(can_manage_tasks가 이미 정의된 경우)에는 덮어쓰지 않고,
+      // 그 외의 경우(명단 일괄 등록 등)에는 기존 권한 값을 그대로 승계합니다.
+      if (newS.can_manage_tasks === undefined) {
+        newS.can_manage_tasks = oldS.can_manage_tasks === true;
+      }
     }
   });
 
