@@ -4210,6 +4210,91 @@ const checkStudentAttendance = (studentId) => {
 };
 window.checkStudentAttendance = checkStudentAttendance;
 
+const openPortalUnsubmittedModal = () => {
+  const modal = document.getElementById('portal-unsubmitted-modal');
+  const body = document.getElementById('portal-unsubmitted-modal-body');
+  if (!modal || !body) return;
+
+  const todayStr = getTodayDateString();
+  const todayTasks = dailyAssignments[todayStr] || [];
+  const dayLogs = dailyLogs[todayStr] || {};
+
+  body.innerHTML = '';
+
+  if (todayTasks.length === 0) {
+    body.innerHTML = '<p style="text-align:center; color:var(--text-muted); font-size:14px; margin: 20px 0;">오늘 지정된 과제가 없습니다.</p>';
+    modal.classList.remove('hidden');
+    return;
+  }
+
+  // 학번 순으로 정렬된 학생 명단
+  const sortedStudents = [...students].sort((a, b) => a.student_id.localeCompare(b.student_id));
+
+  todayTasks.forEach(task => {
+    const taskContainer = document.createElement('div');
+    taskContainer.style.border = '1px solid var(--border-color)';
+    taskContainer.style.borderRadius = '8px';
+    taskContainer.style.padding = '12px';
+    taskContainer.style.background = 'var(--bg-card)';
+
+    const taskTitle = document.createElement('h4');
+    taskTitle.style.margin = '0 0 8px 0';
+    taskTitle.style.fontSize = '14px';
+    taskTitle.style.fontWeight = 'bold';
+    taskTitle.style.color = 'var(--text-main)';
+    taskTitle.innerText = `📚 ${task.name}`;
+
+    const listContainer = document.createElement('div');
+    listContainer.style.display = 'flex';
+    listContainer.style.flexWrap = 'wrap';
+    listContainer.style.gap = '6px';
+
+    const unsubmitted = [];
+    sortedStudents.forEach(student => {
+      // 결석생 체크
+      const isAbsent = absentLogs[todayStr] && absentLogs[todayStr][student.student_id] === true;
+      const studentLog = dayLogs[student.student_id] || {};
+      const isCompleted = studentLog[task.id] === true;
+
+      if (!isCompleted && !isAbsent) {
+        unsubmitted.push(student);
+      }
+    });
+
+    if (unsubmitted.length === 0) {
+      listContainer.innerHTML = '<span style="color:var(--success-color); font-weight:bold; font-size:13px;">🎉 전원 제출 완료!</span>';
+    } else {
+      unsubmitted.forEach(student => {
+        const badge = document.createElement('span');
+        badge.style.fontSize = '11px';
+        badge.style.fontWeight = 'bold';
+        badge.style.padding = '4px 8px';
+        badge.style.borderRadius = '6px';
+        badge.style.background = 'rgba(239, 68, 68, 0.1)';
+        badge.style.color = '#ef4444';
+        badge.innerText = `${student.student_id}번 ${student.name}`;
+        listContainer.appendChild(badge);
+      });
+    }
+
+    taskContainer.appendChild(taskTitle);
+    taskContainer.appendChild(listContainer);
+    body.appendChild(taskContainer);
+  });
+
+  modal.classList.remove('hidden');
+};
+
+const closePortalUnsubmittedModal = () => {
+  const modal = document.getElementById('portal-unsubmitted-modal');
+  if (modal) {
+    modal.classList.add('hidden');
+  }
+};
+
+window.openPortalUnsubmittedModal = openPortalUnsubmittedModal;
+window.closePortalUnsubmittedModal = closePortalUnsubmittedModal;
+
 const renderApprovalRequestsWidget = () => {
   const widgetEl = document.getElementById('approvals-widget');
   const countBadgeEl = document.getElementById('approval-count-badge');
