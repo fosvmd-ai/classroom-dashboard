@@ -291,6 +291,19 @@ const parseUrlParams = () => {
       
       // const cleanHash = window.location.hash.split('?')[0];
       // window.history.replaceState({}, document.title, window.location.pathname + cleanHash);
+    } else if (syncKey) {
+      // dbUrl이 없고 syncKey만 파라미터로 넘어온 경우 -> 공용 파이어베이스(defaultFirebaseConfig)를 활용해 연동
+      const configObj = {
+        databaseURL: defaultFirebaseConfig.databaseURL,
+        apiKey: defaultFirebaseConfig.apiKey,
+        projectId: defaultFirebaseConfig.projectId,
+        authDomain: defaultFirebaseConfig.projectId + ".firebaseapp.com",
+        classroomSyncKey: syncKey
+      };
+      localStorage.setItem('firebaseConfig', JSON.stringify(configObj));
+      firebaseConfig = configObj;
+      localStorage.setItem('currentSyncMode', 'firebase');
+      currentSyncMode = 'firebase';
     }
   }
 };
@@ -3627,18 +3640,7 @@ const openAssignmentModal = (student) => {
   checkboxGroupHtml += '</div>';
 
   // QR URL 매핑
-  let queryStr = "";
-  if (currentSyncMode === 'firebase' && firebaseConfig && firebaseConfig.databaseURL) {
-    const params = new URLSearchParams({
-      dbUrl: firebaseConfig.databaseURL,
-      apiKey: firebaseConfig.apiKey || '',
-      projId: firebaseConfig.projectId || '',
-      syncKey: firebaseConfig.classroomSyncKey || ''
-    });
-    queryStr = "?" + params.toString();
-  } else if (currentSyncMode === 'gdrive' && googleClientId) {
-    queryStr = "?gClientId=" + encodeURIComponent(googleClientId);
-  }
+  const queryStr = getStudentPortalQueryString();
   
   let basePortalUrl = window.location.href.split('#')[0];
   if (basePortalUrl.includes('localhost') || basePortalUrl.includes('127.0.0.1')) {
@@ -4707,17 +4709,32 @@ const goBackToStudentPortalLogin = () => {
   }
 };
 
-const copyStudentPortalLink = () => {
-  let queryStr = "";
+const getStudentPortalQueryString = () => {
   if (currentSyncMode === 'firebase' && firebaseConfig && firebaseConfig.databaseURL) {
-    const params = new URLSearchParams({
-      dbUrl: firebaseConfig.databaseURL,
-      apiKey: firebaseConfig.apiKey || '',
-      projId: firebaseConfig.projectId || '',
-      syncKey: firebaseConfig.classroomSyncKey || ''
-    });
-    queryStr = "?" + params.toString();
+    // 공용 파이어베이스를 사용하는 경우 URL 단축을 위해 syncKey만 포함
+    if (firebaseConfig.databaseURL === defaultFirebaseConfig.databaseURL) {
+      const params = new URLSearchParams({
+        syncKey: firebaseConfig.classroomSyncKey || ''
+      });
+      return "?" + params.toString();
+    } else {
+      // 커스텀 파이어베이스를 사용하는 경우 전체 설정을 유지
+      const params = new URLSearchParams({
+        dbUrl: firebaseConfig.databaseURL,
+        apiKey: firebaseConfig.apiKey || '',
+        projId: firebaseConfig.projectId || '',
+        syncKey: firebaseConfig.classroomSyncKey || ''
+      });
+      return "?" + params.toString();
+    }
+  } else if (currentSyncMode === 'gdrive' && googleClientId) {
+    return "?gClientId=" + encodeURIComponent(googleClientId);
   }
+  return "";
+};
+
+const copyStudentPortalLink = () => {
+  const queryStr = getStudentPortalQueryString();
   
   let basePortalUrl = window.location.origin + window.location.pathname;
   if (basePortalUrl.includes('localhost') || basePortalUrl.includes('127.0.0.1')) {
