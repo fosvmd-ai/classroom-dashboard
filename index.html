@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Outfit:wght@300;400;500;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=1.0.3">
+  <link rel="stylesheet" href="style.css?v=1.0.4">
   <!-- Google Identity Services (GIS) SDK -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- Firebase JS SDK -->
@@ -387,6 +387,7 @@
                 <th width="100px">이름</th>
                 <th width="100px">변동 점수</th>
                 <th>점수 변동 사유</th>
+                <th width="80px">조작</th>
               </tr>
             </thead>
             <tbody id="history-database-table-body">
@@ -546,12 +547,12 @@
         <!-- Right Column Grid: Security Card (Top) & Backup Card (Bottom) -->
         <div style="display: flex; flex-direction: column; gap: 24px;">
           
-          <!-- Card 3: 🔒 보안 및 패스코드 설정 -->
+          <!-- Card 3: 🔒 보안 및 감점/시스템 설정 -->
           <div class="settings-card">
             <div class="settings-card-header">
-              <h3>🔒 보안 및 패스코드 설정</h3>
+              <h3>🔒 보안 및 감점/시스템 설정</h3>
             </div>
-            <p class="settings-card-desc">대시보드 관리자 인증 및 학생 포털 접속 보안 비밀번호를 설정합니다.</p>
+            <p class="settings-card-desc">대시보드 관리자 인증, 학생 포털 접속 보안 및 감점 제어 설정을 관리합니다.</p>
             
             <div style="display: flex; flex-direction: column; gap: 14px; margin-top: 4px;">
               <!-- 교사 비밀번호 -->
@@ -569,6 +570,14 @@
                   <input type="password" id="student-passcode-input" placeholder="학생 공통 비밀번호 입력" style="flex: 1; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 12px; outline: none; background: var(--bg-card); color: var(--text-main);">
                   <button class="btn-success" onclick="saveStudentPasscode()" style="padding: 0 14px; font-size: 12px; cursor: pointer; background: #6366f1; border-color: #4f46e5; border-radius: 6px; height: 34px;">변경</button>
                 </div>
+              </div>
+              <!-- [NEW] 미제출 과제 일일 자동 감점 설정 -->
+              <div style="display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; background: var(--bg-card);">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <label style="font-size: 12px; font-weight: bold; color: var(--text-main);">⚠️ 미제출 과제 일일 자동 감점</label>
+                  <span style="font-size: 10px; color: var(--text-muted); line-height: 1.3;">미제출 과제가 있을 시 평일 기준 매일 1점씩 자동 감점합니다.</span>
+                </div>
+                <input type="checkbox" id="auto-deduction-toggle" onchange="toggleAutoDeductionSetting()" style="width: 18px; height: 18px; cursor: pointer;">
               </div>
             </div>
           </div>
@@ -750,6 +759,11 @@
         <div class="portal-score-area">
           <span class="label">내 신용점수</span>
           <span id="portal-points" class="points-val">0점</span>
+        </div>
+        <!-- [NEW] 학생 출석체크 영역 -->
+        <div class="portal-attendance-area" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;">
+          <button id="portal-attendance-btn" class="btn-primary" style="padding:8px 16px; font-weight:bold; border-radius:10px; background:#10b981; border-color:#059669; font-size:13px; cursor:pointer;">📅 출석 체크</button>
+          <span id="portal-attendance-status" class="hidden" style="color:#10b981; font-weight:bold; font-size:15px; display:inline-flex; align-items:center; gap:4px;">🟢 출석 완료</span>
         </div>
         <div class="portal-grade-area">
           <span class="label">신용등급</span>
@@ -1038,6 +1052,6 @@
   <!-- 오색 폭죽용 전역 가상 캔버스 -->
   <canvas id="confetti-canvas"></canvas>
 
-  <script src="app.js?v=1.0.10" defer></script>
+  <script src="app.js?v=1.0.11" defer></script>
 </body>
 </html>

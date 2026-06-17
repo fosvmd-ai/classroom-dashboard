@@ -79,6 +79,9 @@ if (config.student_passcode === undefined) {
 if (config.gridColumns === undefined) {
   config.gridColumns = 7;
 }
+if (config.auto_deduction_enabled === undefined) {
+  config.auto_deduction_enabled = true;
+}
 
 // 날짜별 알림장 데이터 로드 및 마이그레이션
 let dailyAnnouncements = JSON.parse(localStorage.getItem('dailyAnnouncements')) || {};
@@ -182,14 +185,14 @@ const saveData = (skipFirebase = false) => {
   if (skipFirebase) return; // 로컬만 저장하고 파이어베이스 동기화 건너뜀
   if (isSyncingFromRemote) return;
 
-  // 보안 필터: 교사이거나, 과제 권한이 허용된 학생인 경우에만 쓰기 허용
+  // 보안 필터: 교사이거나, 과제 권한이 허용된 학생이거나, 학생 포털에서 본인의 정보(출석체크 등)를 변경하는 경우 허용
   let isAllowedToSave = isTeacherAuthenticated();
   if (!isAllowedToSave) {
     const hash = window.location.hash;
     if (hash.startsWith('#student/')) {
       const studentId = hash.replace('#student/', '');
       const student = students.find(s => s.student_id === studentId);
-      if (student && student.can_manage_tasks === true) {
+      if (student) {
         isAllowedToSave = true;
       }
     }
@@ -1704,6 +1707,10 @@ const getWeekdaysBetween = (startDateStr, endDateStr) => {
 
 // 미제출 과제에 대한 일일 자동 감점 처리 (평일 기준, 결석생 하루 유예 적용)
 const processAutoDeductions = () => {
+  // 자동 감점 기능 비활성화 시 즉시 종료
+  if (config.auto_deduction_enabled === false) {
+    return;
+  }
   // 보안 및 권한 설정: 교사로 로그인/인증된 브라우저가 아닐 경우 실행을 방지
   if (!isTeacherAuthenticated()) {
     return;
@@ -2712,7 +2719,7 @@ const renderPointHistoryDatabase = () => {
   }
 
   if (sortedHistory.length === 0) {
-    tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding: 20px;">점수 변동 내역이 아직 없습니다.</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding: 20px;">점수 변동 내역이 아직 없습니다.</td></tr>`;
     return;
   }
 
@@ -2742,10 +2749,67 @@ const renderPointHistoryDatabase = () => {
         <span class="points-badge ${badgeClass}" style="display:inline-block; font-size:11px; padding:2px 8px; border-radius:10px; font-weight:bold;">${sign}${change}점</span>
       </td>
       <td style="text-align:left; font-weight:500; padding-left:12px;">${log.reason}</td>
+      <td>
+        <button class="btn-danger" style="font-size:11px; padding:3px 8px; border-radius:4px; font-weight:bold; cursor:pointer;" onclick="cancelPointHistoryItem('${log.timestamp}', '${log.student_id}')">↩️ 취소</button>
+      </td>
     `;
     tableBody.appendChild(tr);
   });
 };
+
+const cancelPointHistoryItem = (timestamp, studentId) => {
+  const logIndex = pointHistory.findIndex(log => log.timestamp === timestamp && log.student_id === studentId);
+  if (logIndex === -1) {
+    alert("해당 이력을 찾을 수 없습니다.");
+    return;
+  }
+
+  const log = pointHistory[logIndex];
+  const student = students.find(s => s.student_id === log.student_id);
+
+  if (confirm(`⚠️ 정말로 이 점수 변동 내역을 취소하시겠습니까?\n\n학생: ${student ? student.name : log.student_id}\n변동: ${log.points_changed > 0 ? '+' : ''}${log.points_changed}점\n사유: ${log.reason}\n\n취소 시 학생의 총 점수가 반대로 가감됩니다.`)) {
+    
+    // 1. 학생 점수 롤백 (반대 가감)
+    if (student) {
+      const pointsToRollback = -log.points_changed;
+      student.total_points = Math.max(0, (student.total_points || 0) + pointsToRollback);
+    }
+
+    // 2. 만약 과제 완료 이력이었다면, 일일 로그 상태도 미완료(false)로 변경
+    if (log.assignment_date && log.task_id) {
+      if (dailyLogs[log.assignment_date] && dailyLogs[log.assignment_date][log.student_id]) {
+        if (log.points_changed > 0) {
+          dailyLogs[log.assignment_date][log.student_id][log.task_id] = false;
+        } else {
+          dailyLogs[log.assignment_date][log.student_id][log.task_id] = true;
+        }
+      }
+    }
+
+    // 3. 만약 출석체크 이력이었다면, 출석체크 상태도 미출석(false 또는 delete)으로 변경
+    if (log.reason && log.reason.includes('[출석체크]')) {
+      const datePart = log.timestamp.substring(0, 10);
+      if (student && student.attendance) {
+        delete student.attendance[datePart];
+      }
+    }
+
+    // 4. 이력 제거
+    pointHistory.splice(logIndex, 1);
+
+    // 5. 저장 및 리렌더링
+    saveData();
+    playAudioEffect('buzz');
+    alert("점수 변동 내역이 성공적으로 취소되고 점수가 롤백되었습니다.");
+
+    // 화면 갱신
+    renderPointHistoryDatabase();
+    renderTeacherDashboard();
+    renderRosterPointsManager();
+    renderDailyRecordsTable();
+  }
+};
+window.cancelPointHistoryItem = cancelPointHistoryItem;
 
 const filterPointHistoryTable = () => {
   const searchStudent = document.getElementById('history-search-student').value.trim().toLowerCase();
@@ -3328,7 +3392,20 @@ const renderGradesConfig = () => {
   if (studentPasscodeEl) {
     studentPasscodeEl.value = config.student_passcode || "";
   }
+  const autoDeductionEl = document.getElementById('auto-deduction-toggle');
+  if (autoDeductionEl) {
+    autoDeductionEl.checked = config.auto_deduction_enabled !== false;
+  }
 };
+
+const toggleAutoDeductionSetting = () => {
+  const toggleEl = document.getElementById('auto-deduction-toggle');
+  if (toggleEl) {
+    config.auto_deduction_enabled = toggleEl.checked;
+    saveData();
+  }
+};
+window.toggleAutoDeductionSetting = toggleAutoDeductionSetting;
 
 // 8-1. 등급 이미지 업로드 파일 트리거 및 Base64 파싱
 const triggerGradeIconFileInput = (index) => {
@@ -3782,6 +3859,23 @@ const renderStudentPortal = (studentId) => {
   document.getElementById('portal-student-title').innerText = `🛡️ ${student.student_id}번 ${student.name} 학생의 신용수첩`;
   document.getElementById('portal-points').innerText = `${student.total_points}점`;
 
+  // 오늘 출석 체크 여부 확인
+  const todayStr = getTodayDateString();
+  const hasAttended = student.attendance && student.attendance[todayStr] === true;
+  const attendBtn = document.getElementById('portal-attendance-btn');
+  const attendStatus = document.getElementById('portal-attendance-status');
+  
+  if (attendBtn && attendStatus) {
+    if (hasAttended) {
+      attendBtn.classList.add('hidden');
+      attendStatus.classList.remove('hidden');
+    } else {
+      attendBtn.classList.remove('hidden');
+      attendStatus.classList.add('hidden');
+      attendBtn.setAttribute('onclick', `checkStudentAttendance('${student.student_id}')`);
+    }
+  }
+
   const grade = evaluateGrade(student.total_points);
   document.getElementById('portal-grade-name').innerText = grade.name;
 
@@ -3999,6 +4093,39 @@ const requestTaskApproval = (studentId, taskId, taskName, dateKey, points) => {
     showSuccess(false);
   }
 };
+
+const checkStudentAttendance = (studentId) => {
+  const student = students.find(s => s.student_id === studentId);
+  if (!student) return;
+
+  const todayStr = getTodayDateString();
+  student.attendance = student.attendance || {};
+  if (student.attendance[todayStr]) {
+    alert("이미 오늘 출석 체크를 완료했습니다.");
+    return;
+  }
+
+  // 출석 체크 처리
+  student.attendance[todayStr] = true;
+  student.total_points = parseInt(student.total_points || 0) + 1;
+
+  // 히스토리에 기록
+  const historyItem = {
+    student_id: student.student_id,
+    timestamp: new Date().toISOString(),
+    points_changed: 1,
+    reason: `📅 [출석체크] 오늘의 출석체크 완료 적립 (+1)`
+  };
+  pointHistory.push(historyItem);
+
+  // 저장 및 포털 화면 새로고침
+  saveData();
+  
+  playAudioEffect('coin');
+  alert("🎉 오늘 출석 체크가 완료되었습니다! 신용점수 1점이 적립되었습니다.");
+  renderStudentPortal(studentId);
+};
+window.checkStudentAttendance = checkStudentAttendance;
 
 const renderApprovalRequestsWidget = () => {
   const widgetEl = document.getElementById('approvals-widget');
@@ -5452,53 +5579,7 @@ const initAnnouncementEditor = () => {
       saveData();
     });
 
-    // 엔터 입력 시 자동으로 번호 매기기 및 문장 구분
-    contentEl.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        const selection = window.getSelection();
-        if (!selection.rangeCount) return;
-        const range = selection.getRangeAt(0);
 
-        // 커서 앞쪽의 텍스트 추출
-        const preCaretRange = range.cloneRange();
-        preCaretRange.selectNodeContents(contentEl);
-        preCaretRange.setEnd(range.endContainer, range.endOffset);
-        const textBeforeCaret = preCaretRange.toString();
-
-        // 줄바꿈으로 분리하여 현재 줄 분석
-        const linesBefore = textBeforeCaret.split('\n');
-        const currentLine = linesBefore[linesBefore.length - 1];
-
-        // 숫자로 시작하는지 확인 (예: "1. ", "2. ")
-        const numberMatch = currentLine.match(/^(\d+)\.\s*(.*)/);
-
-        if (numberMatch) {
-          const num = parseInt(numberMatch[1], 10);
-          const textAfterNumber = numberMatch[2].trim();
-
-          if (textAfterNumber === '') {
-            // 내용 없이 번호만 있는 줄에서 엔터를 치면 번호를 지우고 줄바꿈만 수행 (리스트 종료)
-            e.preventDefault();
-            const lenToDelete = currentLine.length;
-            for (let i = 0; i < lenToDelete; i++) {
-              document.execCommand('delete');
-            }
-            document.execCommand('insertText', false, '\n');
-          } else {
-            // 내용이 있는 줄에서 엔터를 치면 다음 번호를 자동으로 매겨서 줄바꿈
-            e.preventDefault();
-            const nextNum = num + 1;
-            document.execCommand('insertText', false, `\n${nextNum}. `);
-          }
-        } else {
-          // 숫자로 시작하지 않는 경우, 텍스트가 존재하면 자동으로 "1. "으로 시작
-          if (currentLine.trim() !== '') {
-            e.preventDefault();
-            document.execCommand('insertText', false, '\n1. ');
-          }
-        }
-      }
-    });
 
     // 붙여넣기 시 서식을 모두 지우고 일반 텍스트만 들어가도록 처리
     contentEl.addEventListener('paste', (e) => {
@@ -5551,53 +5632,7 @@ const initDetailAnnouncementEditor = () => {
       renderCalendar(); // 달력의 알림장 미리보기 배지 갱신용
     });
 
-    // 엔터 입력 시 자동으로 번호 매기기 및 문장 구분
-    contentEl.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        const selection = window.getSelection();
-        if (!selection.rangeCount) return;
-        const range = selection.getRangeAt(0);
 
-        // 커서 앞쪽의 텍스트 추출
-        const preCaretRange = range.cloneRange();
-        preCaretRange.selectNodeContents(contentEl);
-        preCaretRange.setEnd(range.endContainer, range.endOffset);
-        const textBeforeCaret = preCaretRange.toString();
-
-        // 줄바꿈으로 분리하여 현재 줄 분석
-        const linesBefore = textBeforeCaret.split('\n');
-        const currentLine = linesBefore[linesBefore.length - 1];
-
-        // 숫자로 시작하는지 확인 (예: "1. ", "2. ")
-        const numberMatch = currentLine.match(/^(\d+)\.\s*(.*)/);
-
-        if (numberMatch) {
-          const num = parseInt(numberMatch[1], 10);
-          const textAfterNumber = numberMatch[2].trim();
-
-          if (textAfterNumber === '') {
-            // 내용 없이 번호만 있는 줄에서 엔터를 치면 번호를 지우고 줄바꿈만 수행 (리스트 종료)
-            e.preventDefault();
-            const lenToDelete = currentLine.length;
-            for (let i = 0; i < lenToDelete; i++) {
-              document.execCommand('delete');
-            }
-            document.execCommand('insertText', false, '\n');
-          } else {
-            // 내용이 있는 줄에서 엔터를 치면 다음 번호를 자동으로 매겨서 줄바꿈
-            e.preventDefault();
-            const nextNum = num + 1;
-            document.execCommand('insertText', false, `\n${nextNum}. `);
-          }
-        } else {
-          // 숫자로 시작하지 않는 경우, 텍스트가 존재하면 자동으로 "1. "으로 시작
-          if (currentLine.trim() !== '') {
-            e.preventDefault();
-            document.execCommand('insertText', false, '\n1. ');
-          }
-        }
-      }
-    });
 
     // 붙여넣기 시 서식을 모두 지우고 일반 텍스트만 들어가도록 처리
     contentEl.addEventListener('paste', (e) => {
