@@ -2691,6 +2691,9 @@ const renderRosterPointsManager = () => {
       <td>
         <input type="text" class="roster-point-reason-input" data-student-id="${student.student_id}" placeholder="(선택 사항) 예: 발표 우수, 준비물 미지참 등" style="text-align:left; font-size:13px; padding:6px 10px; width:100%;">
       </td>
+      <td style="text-align:center;">
+        <input type="checkbox" class="roster-task-auth-checkbox" data-student-id="${student.student_id}" ${student.can_manage_tasks === true ? 'checked' : ''} onchange="toggleStudentTaskAuth('${student.student_id}', this.checked)" style="width: 18px; height: 18px; cursor: pointer; transform: scale(1.1); vertical-align: middle;">
+      </td>
       <td>
         <button class="btn-primary" style="padding: 6px 12px; font-size:13px; font-weight:bold; border-radius:var(--radius-sm); background-color:#2563eb; border-color:#2563eb;" onclick="viewStudentPortalFromTeacher('${student.student_id}')">🔍 조회</button>
       </td>
@@ -3083,13 +3086,9 @@ const renderRosterManager = () => {
   students.forEach((student, index) => {
     const tr = document.createElement('tr');
     tr.dataset.index = index;
-    const hasPermission = student.can_manage_tasks === true;
     tr.innerHTML = `
       <td><input type="text" class="roster-id-input" value="${student.student_id}"></td>
       <td><input type="text" class="roster-name-input" value="${student.name}" style="font-weight:bold;"></td>
-      <td style="text-align:center;">
-        <input type="checkbox" class="roster-permission-checkbox" ${hasPermission ? 'checked' : ''} style="transform: scale(1.3); cursor:pointer;">
-      </td>
       <td><button class="btn-delete" onclick="deleteRosterRow(this)">❌ 삭제</button></td>
     `;
     tableBody.appendChild(tr);
@@ -3279,12 +3278,18 @@ const addNewStudentRow = () => {
   tr.innerHTML = `
     <td><input type="text" class="roster-id-input" value="${nextIdStr}"></td>
     <td><input type="text" class="roster-name-input" placeholder="이름 입력" style="font-weight:bold;"></td>
-    <td style="text-align:center;">
-      <input type="checkbox" class="roster-permission-checkbox" style="transform: scale(1.3); cursor:pointer;">
-    </td>
     <td><button class="btn-delete" onclick="deleteRosterRow(this)">❌ 삭제</button></td>
   `;
   tableBody.appendChild(tr);
+};
+
+const toggleStudentTaskAuth = (studentId, isChecked) => {
+  const student = students.find(s => s.student_id === studentId);
+  if (student) {
+    student.can_manage_tasks = isChecked;
+    saveData();
+    console.log(`[Task Auth] 학생 ${student.name}(${studentId})의 과제 관리 권한이 ${isChecked ? '활성화' : '비활성화'}되었습니다.`);
+  }
 };
 
 const deleteRosterRow = (btn) => {
@@ -3301,8 +3306,6 @@ const saveRoster = () => {
   rows.forEach(row => {
     let idInput = row.querySelector('.roster-id-input').value.trim();
     const nameInput = row.querySelector('.roster-name-input').value.trim();
-    const permissionCheckbox = row.querySelector('.roster-permission-checkbox');
-    const canManageTasks = permissionCheckbox ? permissionCheckbox.checked : false;
 
     if (!idInput || !nameInput) {
       alert("학번과 이름은 빈칸일 수 없습니다.");
@@ -3322,6 +3325,10 @@ const saveRoster = () => {
     }
 
     idSet.add(idInput);
+    
+    // 기존 학생인 경우 기존의 can_manage_tasks 권한을 승계
+    const existingStudent = students.find(s => s.student_id === idInput);
+    const canManageTasks = existingStudent ? (existingStudent.can_manage_tasks === true) : false;
     
     newStudents.push({
       student_id: idInput,
@@ -5073,6 +5080,7 @@ window.importClassroomData = importClassroomData;
 window.renderPointHistoryDatabase = renderPointHistoryDatabase;
 window.filterPointHistoryTable = filterPointHistoryTable;
 window.toggleTaskInTableDynamic = toggleTaskInTableDynamic;
+window.toggleStudentTaskAuth = toggleStudentTaskAuth;
 window.addNewStudentRow = addNewStudentRow;
 window.deleteRosterRow = deleteRosterRow;
 window.saveRoster = saveRoster;

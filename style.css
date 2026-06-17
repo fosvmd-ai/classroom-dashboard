@@ -571,11 +571,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 10px 14px;
 }
 
 #announcement-content {
-  font-size: 26px; /* 대폭 확대하여 학생들의 가시성 극대화 */
+  font-size: 30px; /* 대폭 확대하여 학생들의 가시성 극대화 */
   line-height: 1.6;
   color: #713f12;
   white-space: pre-wrap;
