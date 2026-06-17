@@ -3903,7 +3903,6 @@ const renderStudentPortal = (studentId) => {
   }
 
   // 오늘 과제 수행 현황 그리기 (동적 생성)
-  const todayStr = getTodayDateString();
   const todayTasks = dailyAssignments[todayStr] || [];
   const studentLog = (dailyLogs[todayStr] || {})[student.student_id] || {};
 
