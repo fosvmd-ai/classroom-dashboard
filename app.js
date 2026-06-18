@@ -790,6 +790,24 @@ const loginWithFirebaseGoogle = () => {
     const provider = new firebase.auth.GoogleAuthProvider();
     firebase.auth().signInWithPopup(provider).then((result) => {
       const user = result.user;
+      
+      // 로그인 성공 시, 이전 로그인되어 있던 계정과 다른 계정인지 체크하여 데이터 격리 보호
+      const oldSyncKey = firebaseConfig.classroomSyncKey;
+      if (oldSyncKey && oldSyncKey !== user.uid) {
+        console.log("[Firebase] 다른 구글 계정 감지: 로컬 데이터를 초기화합니다.");
+        localStorage.removeItem('students');
+        localStorage.removeItem('grades');
+        localStorage.removeItem('dailyLogs');
+        localStorage.removeItem('pointHistory');
+        localStorage.removeItem('config');
+        localStorage.removeItem('dailyAssignments');
+        localStorage.removeItem('pendingRequests');
+        localStorage.removeItem('absentLogs');
+        localStorage.removeItem('processedDeductionDates');
+        localStorage.removeItem('dailyAnnouncements');
+        localStorage.removeItem('teacherPasscode');
+      }
+
       firebaseUser = {
         uid: user.uid,
         displayName: user.displayName,
@@ -816,6 +834,29 @@ const loginWithFirebaseGoogle = () => {
 
 const logoutFirebaseGoogle = () => {
   sessionStorage.removeItem('teacher_authenticated');
+  
+  // 다른 사용자 계정과의 혼선 및 정보 유출 방지를 위해 로컬 클래스 데이터 캐시 청소
+  localStorage.removeItem('students');
+  localStorage.removeItem('grades');
+  localStorage.removeItem('dailyLogs');
+  localStorage.removeItem('pointHistory');
+  localStorage.removeItem('config');
+  localStorage.removeItem('dailyAssignments');
+  localStorage.removeItem('pendingRequests');
+  localStorage.removeItem('absentLogs');
+  localStorage.removeItem('processedDeductionDates');
+  localStorage.removeItem('dailyAnnouncements');
+  localStorage.removeItem('teacherPasscode');
+
+  if (firebaseConfig) {
+    delete firebaseConfig.classroomSyncKey;
+    localStorage.setItem('firebaseConfig', JSON.stringify(firebaseConfig));
+  }
+  
+  // 동기화 모드를 로컬로 리셋
+  localStorage.setItem('currentSyncMode', 'local');
+  currentSyncMode = 'local';
+
   if (firebase.apps.length > 0) {
     firebase.auth().signOut().then(() => {
       firebaseUser = null;
@@ -824,6 +865,7 @@ const logoutFirebaseGoogle = () => {
       location.reload();
     }).catch(err => {
       console.error(err);
+      location.reload();
     });
   } else {
     firebaseUser = null;
