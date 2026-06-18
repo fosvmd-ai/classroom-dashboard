@@ -689,7 +689,8 @@ const initFirebaseSync = () => {
       });
     };
 
-    // 최초 연결
+    // 인증된 Firebase 사용자 기반으로만 연결 (최초 연결도 onAuthStateChanged에서 처리)
+    // classroomSyncKey가 있으면 onAuthStateChanged 전 임시 연결 (캐시된 Auth 세션 활용)
     connectToClassroom(syncKey);
     
     // Auth 상태 리스너: 인증된 구글 계정이 저장된 classroomSyncKey와 다를 경우 즉시 데이터 격리 처리
@@ -5006,9 +5007,15 @@ const loginAsTeacher = () => {
     targetConfig = { ...defaultFirebaseConfig };
   }
 
-  try {
+  const doLogin = async () => {
     if (firebase.apps.length === 0) {
       firebase.initializeApp(targetConfig);
+    }
+    // 기존 Firebase 세션을 강제로 먼저 종료하여 계정 선택 창이 반드시 뜨도록 처리
+    try {
+      await firebase.auth().signOut();
+    } catch (e) {
+      // 로그아웃 실패해도 계속 진행
     }
     const provider = new firebase.auth.GoogleAuthProvider();
     // 로그인 시 항상 구글 계정 선택 창을 띄우도록 설정하여 다른 계정 전환 지원
@@ -5058,10 +5065,11 @@ const loginAsTeacher = () => {
       console.error("[Firebase] 교사 로그인 실패:", error);
       alert("❌ 로그인 실패: " + error.message);
     });
-  } catch (err) {
+  };
+  doLogin().catch(err => {
     console.error(err);
     alert("❌ 파이어베이스 구글 연동 오류: " + err.message);
-  }
+  });
 };
 
 const promptTeacherLogin = () => {
