@@ -635,57 +635,104 @@ const initFirebaseSync = () => {
       return;
     }
     
-    dbRef = firebase.database().ref('classrooms/' + syncKey);
-    dbRef.on('value', (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        applyRemoteData(data);
-        hasAttemptedInitialization = false;
-      } else {
-        console.log("[Firebase] 데이터 수신: 데이터가 없습니다 (null).");
-        isFirebaseDataLoaded = true;
-        
-        // 교사 기기이고 아직 원격 DB가 비어있는 상태라면, 로컬 상태를 기준으로 원격을 초기화
-        if (isTeacherAuthenticated() && !isSyncingFromRemote && !hasAttemptedInitialization) {
-          hasAttemptedInitialization = true;
-          console.log("[Firebase] 교사 권한이 감지되어 원격 데이터베이스를 로컬 데이터로 초기화합니다.");
-          dbRef.update({
-            students,
-            grades,
-            dailyLogs,
-            pointHistory,
-            config,
-            dailyAssignments,
-            absentLogs,
-            processedDeductionDates,
-            teacherPasscode,
-            dailyAnnouncements
-          }).catch(err => {
-            console.error("[Firebase] 원격 초기화 오류:", err);
-          });
+    const connectToClassroom = (key) => {
+      // 기존 리스너 해제
+      if (dbRef) {
+        dbRef.off();
+      }
+      dbRef = firebase.database().ref('classrooms/' + key);
+      dbRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          applyRemoteData(data);
+          hasAttemptedInitialization = false;
+        } else {
+          console.log("[Firebase] 데이터 수신: 데이터가 없습니다 (null).");
+          isFirebaseDataLoaded = true;
+          
+          // 교사 기기이고 아직 원격 DB가 비어있는 상태라면, 로컬 상태를 기준으로 원격을 초기화
+          if (isTeacherAuthenticated() && !isSyncingFromRemote && !hasAttemptedInitialization) {
+            hasAttemptedInitialization = true;
+            console.log("[Firebase] 교사 권한이 감지되어 원격 데이터베이스를 로컬 데이터로 초기화합니다.");
+            dbRef.update({
+              students,
+              grades,
+              dailyLogs,
+              pointHistory,
+              config,
+              dailyAssignments,
+              absentLogs,
+              processedDeductionDates,
+              teacherPasscode,
+              dailyAnnouncements
+            }).catch(err => {
+              console.error("[Firebase] 원격 초기화 오류:", err);
+            });
+          }
+          
+          // 학생 포털 대기 상태 해제 및 렌더링
+          if (window.location.hash.startsWith('#student/')) {
+            router();
+          }
         }
-        
-        // 학생 포털 대기 상태 해제 및 렌더링
+      }, (error) => {
+        console.error("[Firebase] 데이터 수신 오류:", error);
+        const errCode = error.code || '';
+        const errStr = error.message || '';
+        const combinedErr = (errCode + " " + errStr).toLowerCase();
+        if (combinedErr.includes('permission')) {
+          window.firebasePermissionError = true;
+        }
         if (window.location.hash.startsWith('#student/')) {
           router();
         }
-      }
-    }, (error) => {
-      console.error("[Firebase] 데이터 수신 오류:", error);
-      const errCode = error.code || '';
-      const errStr = error.message || '';
-      const combinedErr = (errCode + " " + errStr).toLowerCase();
-      if (combinedErr.includes('permission')) {
-        window.firebasePermissionError = true;
-      }
-      if (window.location.hash.startsWith('#student/')) {
-        router();
-      }
-    });
+      });
+    };
+
+    // 최초 연결
+    connectToClassroom(syncKey);
     
-    // Auth 상태 리스너
+    // Auth 상태 리스너: 인증된 구글 계정이 저장된 classroomSyncKey와 다를 경우 즉시 데이터 격리 처리
     firebase.auth().onAuthStateChanged((user) => {
       if (user) {
+        const currentSyncKey = firebaseConfig ? firebaseConfig.classroomSyncKey : null;
+
+        // 인증된 계정과 현재 연결된 학급 키가 다른 경우 → 계정 교체 감지
+        if (currentSyncKey && currentSyncKey !== user.uid) {
+          console.log("[Firebase] onAuthStateChanged: 다른 계정 감지 → 로컬 데이터 초기화 후 새 학급으로 전환합니다.");
+          // 로컬 캐시 전면 삭제
+          localStorage.removeItem('students');
+          localStorage.removeItem('grades');
+          localStorage.removeItem('dailyLogs');
+          localStorage.removeItem('pointHistory');
+          localStorage.removeItem('config');
+          localStorage.removeItem('dailyAssignments');
+          localStorage.removeItem('pendingRequests');
+          localStorage.removeItem('absentLogs');
+          localStorage.removeItem('processedDeductionDates');
+          localStorage.removeItem('dailyAnnouncements');
+          localStorage.removeItem('teacherPasscode');
+          
+          // 메모리 상태도 초기화
+          students = [...DEFAULT_STUDENTS];
+          grades = [...DEFAULT_GRADES];
+          dailyLogs = {};
+          pointHistory = [];
+          dailyAssignments = {};
+          pendingRequests = {};
+          absentLogs = {};
+          processedDeductionDates = [];
+          dailyAnnouncements = {};
+          hasAttemptedInitialization = false;
+
+          // classroomSyncKey를 새 UID로 업데이트하고 저장
+          firebaseConfig.classroomSyncKey = user.uid;
+          localStorage.setItem('firebaseConfig', JSON.stringify(firebaseConfig));
+          
+          // 새 계정의 학급 경로로 재연결
+          connectToClassroom(user.uid);
+        }
+
         firebaseUser = {
           uid: user.uid,
           displayName: user.displayName,
