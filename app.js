@@ -788,6 +788,9 @@ const loginWithFirebaseGoogle = () => {
       firebase.initializeApp(firebaseConfig);
     }
     const provider = new firebase.auth.GoogleAuthProvider();
+    // 로그인 시 항상 구글 계정 선택 창을 띄우도록 설정하여 다른 계정 전환 지원
+    provider.setCustomParameters({ prompt: 'select_account' });
+    
     firebase.auth().signInWithPopup(provider).then((result) => {
       const user = result.user;
       
@@ -4961,8 +4964,29 @@ const loginAsTeacher = () => {
       firebase.initializeApp(targetConfig);
     }
     const provider = new firebase.auth.GoogleAuthProvider();
+    // 로그인 시 항상 구글 계정 선택 창을 띄우도록 설정하여 다른 계정 전환 지원
+    provider.setCustomParameters({ prompt: 'select_account' });
+    
     firebase.auth().signInWithPopup(provider).then((result) => {
       const user = result.user;
+      
+      // 로그인 성공 시, 이전 로그인되어 있던 계정과 다른 계정인지 체크하여 데이터 격리 보호
+      const oldSyncKey = targetConfig.classroomSyncKey;
+      if (oldSyncKey && oldSyncKey !== user.uid) {
+        console.log("[Firebase] 다른 구글 계정 감지: 로컬 데이터를 초기화합니다.");
+        localStorage.removeItem('students');
+        localStorage.removeItem('grades');
+        localStorage.removeItem('dailyLogs');
+        localStorage.removeItem('pointHistory');
+        localStorage.removeItem('config');
+        localStorage.removeItem('dailyAssignments');
+        localStorage.removeItem('pendingRequests');
+        localStorage.removeItem('absentLogs');
+        localStorage.removeItem('processedDeductionDates');
+        localStorage.removeItem('dailyAnnouncements');
+        localStorage.removeItem('teacherPasscode');
+      }
+
       firebaseUser = {
         uid: user.uid,
         displayName: user.displayName,
