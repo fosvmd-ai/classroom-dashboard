@@ -1746,12 +1746,31 @@ const processAutoDeductions = () => {
   
   if (datesToProcess.length === 0) return;
   
+  // O(H) 성능 최적화: pointHistory 속 완료 로그(points_changed > 0)들을 미리 O(H)로 맵에 인덱싱
+  const completionLogMap = {};
+  pointHistory.forEach(log => {
+    if (log.points_changed > 0 && log.student_id && log.assignment_date && log.task_id) {
+      const key = `${log.student_id}_${log.assignment_date}_${log.task_id}`;
+      const compDate = log.timestamp.substring(0, 10);
+      if (!completionLogMap[key] || compDate < completionLogMap[key]) {
+        completionLogMap[key] = compDate;
+      }
+    }
+  });
+  
   let totalDeductionsCount = 0;
   
   datesToProcess.forEach(processDate => {
+    const processDateObj = parseLocalDate(processDate);
     students.forEach(student => {
       assignmentDates.forEach(assignDate => {
         if (assignDate >= processDate) return;
+        
+        // 성능 최적화: 14일 초과된 너무 오래된 과제는 감점 검토에서 스킵
+        const assignDateObj = parseLocalDate(assignDate);
+        const diffTime = Math.abs(processDateObj - assignDateObj);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (diffDays > 14) return;
         
         const tasks = dailyAssignments[assignDate] || [];
         const dayLogs = dailyLogs[assignDate] || {};
@@ -1772,15 +1791,8 @@ const processAutoDeductions = () => {
           let isCompletedOnProcessDate = false;
           
           if (studentLog[task.id] === true) {
-            // pointHistory에서 완료 로그(points_changed > 0) 중 가장 최신 것을 역순 검색
-            const compLog = [...pointHistory].reverse().find(log => 
-              log.student_id === student.student_id && 
-              log.assignment_date === assignDate && 
-              log.task_id === task.id && 
-              log.points_changed > 0
-            );
-            if (compLog) {
-              const compDate = compLog.timestamp.substring(0, 10);
+            const compDate = completionLogMap[`${student.student_id}_${assignDate}_${task.id}`];
+            if (compDate) {
               if (compDate <= processDate) {
                 isCompletedOnProcessDate = true;
               }
@@ -5927,7 +5939,9 @@ window.onload = () => {
   initDetailAnnouncementEditor();
   
   // 구글 드라이브 연동 초기화 및 자동 동기화
-  initGoogleDriveSync();
+  if (currentSyncMode === 'gdrive') {
+    initGoogleDriveSync();
+  }
   autoSyncOnLoad();
   
   // 학급 달성률 게이지 업데이트
