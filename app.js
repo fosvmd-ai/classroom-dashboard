@@ -2876,16 +2876,56 @@ const filterPointHistoryTable = () => {
 
 // 7-1-A. 수동 점수 1점단위 즉시 가감 버튼 헬퍼
 const adjustPointsInline = (studentId, amount) => {
-  const input = document.querySelector(`.roster-point-edit-input[data-student-id="${studentId}"]`);
-  if (input) {
-    const val = parseInt(input.value) || 0;
-    input.value = Math.max(0, val + amount);
+  const editInputs = document.querySelectorAll('.roster-point-edit-input');
+  let changedCount = 0;
+  const nowStr = new Date().toISOString();
+
+  editInputs.forEach((input) => {
+    const sId = input.dataset.studentId;
+    let newPoints = parseInt(input.value);
     
-    // 임시 하이라이트 플래시 효과
-    input.style.backgroundColor = amount > 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
-    setTimeout(() => { input.style.backgroundColor = ''; }, 1000);
-    
+    if (isNaN(newPoints) || newPoints < 0) {
+      return;
+    }
+
+    // 클릭한 타겟 학생의 경우 즉시 amount만큼 증감
+    if (sId === studentId) {
+      newPoints = Math.max(0, newPoints + amount);
+    }
+
+    const student = students.find(s => s.student_id === sId);
+    if (student) {
+      const oldPoints = student.total_points || 0;
+      if (oldPoints !== newPoints) {
+        const delta = newPoints - oldPoints;
+        student.total_points = newPoints;
+        
+        // 학번에 매칭되는 사유 값 가져오기
+        const reasonInput = document.querySelector(`.roster-point-reason-input[data-student-id="${sId}"]`);
+        const reason = (reasonInput && reasonInput.value.trim()) 
+          ? reasonInput.value.trim() 
+          : (sId === studentId ? `수동 수정 (${amount > 0 ? '+' : ''}${amount})` : "수동 수정");
+
+        pointHistory.push({
+          student_id: sId,
+          timestamp: nowStr,
+          points_changed: delta,
+          reason: reason
+        });
+        
+        changedCount++;
+      }
+    }
+  });
+
+  if (changedCount > 0) {
+    saveData();
     playAudioEffect(amount > 0 ? 'coin' : 'buzz');
+    renderRosterPointsManager();
+    renderTeacherDashboard();
+    console.log(`[Roster AutoSave] ${changedCount}명의 점수 정보가 즉각 자동 반영되었습니다.`);
+  } else {
+    playAudioEffect('buzz');
   }
 };
 
