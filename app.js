@@ -626,6 +626,52 @@ const initFirebaseSync = () => {
     updateSyncStatusUI();
     return;
   }
+
+  // ★ Firebase SDK 비동기 로드 대기 + 차단 감지 자동 오프라인 폴백
+  if (typeof firebase === 'undefined') {
+    // SDK가 아직 로드 안 됨 → 최대 3초 대기 후 재시도
+    if (!window.__firebaseSdkRetryCount) window.__firebaseSdkRetryCount = 0;
+    window.__firebaseSdkRetryCount++;
+
+    // 광고 차단으로 SDK 로드 실패 확정된 경우 즉시 오프라인 폴백
+    if (window.__firebaseBlocked) {
+      console.warn('[Firebase] SDK 차단 감지 → 오프라인(캐시) 모드로 자동 전환');
+      isFirebaseDataLoaded = true; // 로딩 스피너 해제
+      window.firebasePermissionError = false;
+      window.__showingCachedPortal = false;
+      const syncBanner = document.getElementById('portal-sync-banner');
+      if (syncBanner) syncBanner.remove();
+      // 차단 안내 배너 표시
+      setTimeout(() => {
+        const existing = document.getElementById('portal-blocked-banner');
+        if (!existing && window.location.hash.startsWith('#student/')) {
+          const banner = document.createElement('div');
+          banner.id = 'portal-blocked-banner';
+          banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,#f59e0b,#ef4444);color:#fff;text-align:center;padding:6px 12px;font-size:12px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,0.15);';
+          banner.innerHTML = '⚠️ 브라우저 광고 차단으로 실시간 연결 불가 — 저장된 데이터를 표시합니다';
+          document.body.prepend(banner);
+        }
+        if (window.location.hash.startsWith('#student/')) router();
+      }, 100);
+      return;
+    }
+
+    // 최대 30회(3초) 재시도 후 포기
+    if (window.__firebaseSdkRetryCount <= 30) {
+      setTimeout(initFirebaseSync, 100);
+    } else {
+      console.warn('[Firebase] SDK 로드 3초 초과 → 오프라인 모드 전환');
+      isFirebaseDataLoaded = true;
+      window.__showingCachedPortal = false;
+      const syncBanner = document.getElementById('portal-sync-banner');
+      if (syncBanner) syncBanner.remove();
+      if (window.location.hash.startsWith('#student/')) router();
+    }
+    return;
+  }
+  // SDK 로드 성공 시 재시도 카운터 초기화
+  window.__firebaseSdkRetryCount = 0;
+
   try {
     let app;
     if (firebase.apps.length === 0) {

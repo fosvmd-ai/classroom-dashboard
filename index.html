@@ -11,10 +11,23 @@
   <link rel="stylesheet" href="style.css?v=1.0.6">
   <!-- Google Identity Services (GIS) SDK -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <!-- Firebase JS SDK -->
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js" defer></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js" defer></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js" defer></script>
+  <!-- Firebase JS SDK - async 병렬 로드 + 차단 감지 -->
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <script>
+    // Firebase SDK 로드 실패(광고 차단 등) 즉시 감지 플래그
+    window.__firebaseLoadErrors = 0;
+    window.__firebaseScriptsTotal = 3;
+    function __onFirebaseScriptError(scriptName) {
+      window.__firebaseLoadErrors = (window.__firebaseLoadErrors || 0) + 1;
+      console.warn('[Firebase SDK] 스크립트 로드 실패 (광고 차단 의심):', scriptName);
+      if (window.__firebaseLoadErrors >= window.__firebaseScriptsTotal) {
+        window.__firebaseBlocked = true;
+      }
+    }
+  </script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js" async onerror="__onFirebaseScriptError('firebase-app')"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js" async onerror="__onFirebaseScriptError('firebase-database')"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js" async onerror="__onFirebaseScriptError('firebase-auth')"></script>
 </head>
 <body>
 
@@ -1067,6 +1080,6 @@
   <!-- 오색 폭죽용 전역 가상 캔버스 -->
   <canvas id="confetti-canvas"></canvas>
 
-  <script src="app.js?v=1.0.24" defer></script>
+  <script src="app.js?v=1.0.25" defer></script>
 </body>
 </html>
