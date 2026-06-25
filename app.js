@@ -2031,8 +2031,7 @@ const handleDragEnd = (e) => {
 // @TEACHER_ONLY_START
 const renderTeacherDashboard = () => {
   const gridEl = document.getElementById('students-grid');
-  const unsubmittedEl = document.getElementById('unsubmitted-container');
-  const btnAllDeduct = document.getElementById('btn-all-unsubmitted-deduct');
+  const unsubmittedWrapperEl = document.getElementById('unsubmitted-view-wrapper');
   
   // 배치 조절 셀렉트 박스 동기화
   const gridSelect = document.getElementById('grid-columns-select');
@@ -2055,8 +2054,7 @@ const renderTeacherDashboard = () => {
       gridEl.classList.remove('cols-4', 'cols-5', 'cols-6', 'cols-7', 'cols-8');
       gridEl.classList.add(`cols-${cols}`);
     }
-    if (unsubmittedEl) unsubmittedEl.classList.add('hidden');
-    if (btnAllDeduct) btnAllDeduct.classList.add('hidden');
+    if (unsubmittedWrapperEl) unsubmittedWrapperEl.classList.add('hidden');
     
     gridEl.innerHTML = '';
     students.forEach((student, index) => {
@@ -2125,8 +2123,7 @@ const renderTeacherDashboard = () => {
     });
   } else {
     if (gridEl) gridEl.classList.add('hidden');
-    if (unsubmittedEl) unsubmittedEl.classList.remove('hidden');
-    if (btnAllDeduct) btnAllDeduct.classList.remove('hidden');
+    if (unsubmittedWrapperEl) unsubmittedWrapperEl.classList.remove('hidden');
     
     renderUnsubmittedView(currentDashboardDate);
   }

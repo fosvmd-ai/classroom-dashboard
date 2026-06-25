@@ -123,8 +123,6 @@
               <button class="btn-secondary" style="padding: 0 14px; font-size: 12px; font-weight: bold; border-radius: 8px; height: 38px;" onclick="resetDashboardDateToToday()">오늘로</button>
               <button class="btn-success" style="padding: 0 14px; font-size: 12px; font-weight: bold; border-radius: 8px; height: 38px;" onclick="openCreateAssignmentModal(currentDashboardDate)">📝 과제 생성</button>
               <button class="btn-danger" style="padding: 0 14px; font-size: 12px; font-weight: bold; border-radius: 8px; height: 38px;" onclick="deleteDashboardAssignments()">🗑️ 과제 삭제</button>
-              <button id="btn-auto-deduction-dashboard-toggle" style="padding: 0 14px; font-size: 12px; font-weight: bold; border-radius: 8px; height: 38px;" onclick="toggleAutoDeductionFromDashboard()"></button>
-              <button id="btn-all-unsubmitted-deduct" class="btn-danger hidden" style="padding: 0 14px; font-size: 12px; font-weight: bold; border-radius: 8px; height: 38px; background-color: #ef4444; border-color: #ef4444;" onclick="allUnsubmittedDeduct(currentDashboardDate)">📉 미제출 감점</button>
             </div>
           </div>
 
@@ -162,9 +160,21 @@
         <div id="students-grid" class="students-grid">
           <!-- JS에서 동적으로 생성됨 -->
         </div>
-        <!-- 과제별 미제출자 목록 영역 -->
-        <div id="unsubmitted-container" class="unsubmitted-container hidden">
-          <!-- JS에서 동적으로 생성됨 -->
+        <!-- 과제별 미제출자 목록 영역 (감점 관리 헤더 추가) -->
+        <div id="unsubmitted-view-wrapper" class="hidden" style="display: flex; flex-direction: column; gap: 16px; width: 100%;">
+          <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); padding: 14px 20px; border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <h3 style="font-size: 15px; font-weight: 800; color: var(--text-main); margin: 0; border: none; padding: 0; line-height: 1.2;">📉 미제출 감점 및 관리</h3>
+              <p style="font-size: 11px; color: var(--text-muted); margin: 0;">선택된 날짜의 미제출 과제에 대해 감점 처리하거나 자동감점 상태를 변경합니다.</p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <button id="btn-auto-deduction-dashboard-toggle" style="padding: 0 14px; font-size: 12px; font-weight: bold; border-radius: 8px; height: 38px;" onclick="toggleAutoDeductionFromDashboard()"></button>
+              <button id="btn-all-unsubmitted-deduct" class="btn-danger" style="padding: 0 14px; font-size: 12px; font-weight: bold; border-radius: 8px; height: 38px; background-color: #ef4444; border-color: #ef4444;" onclick="allUnsubmittedDeduct(currentDashboardDate)">📉 미제출 감점</button>
+            </div>
+          </div>
+          <div id="unsubmitted-container" class="unsubmitted-container">
+            <!-- JS에서 동적으로 생성됨 -->
+          </div>
         </div>
       </section>
 
