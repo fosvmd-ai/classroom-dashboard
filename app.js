@@ -2040,6 +2040,9 @@ const renderTeacherDashboard = () => {
     gridSelect.value = String(config.gridColumns || 7);
   }
 
+  // 자동감점 버튼 동기화
+  updateAutoDeductionDashboardButton();
+
   const todayStr = currentDashboardDate;
   const todayLogs = dailyLogs[todayStr] || {};
   const todayTasks = dailyAssignments[todayStr] || [];
@@ -3631,9 +3634,44 @@ const toggleAutoDeductionSetting = () => {
   if (toggleEl) {
     config.auto_deduction_enabled = toggleEl.checked;
     saveData();
+    updateAutoDeductionDashboardButton();
   }
 };
 window.toggleAutoDeductionSetting = toggleAutoDeductionSetting;
+
+const updateAutoDeductionDashboardButton = () => {
+  const btn = document.getElementById('btn-auto-deduction-dashboard-toggle');
+  if (!btn) return;
+  const isEnabled = config.auto_deduction_enabled !== false;
+  if (isEnabled) {
+    btn.innerHTML = '🟢 자동감점 켬';
+    btn.className = 'btn-success';
+    btn.style.backgroundColor = '#10b981';
+    btn.style.borderColor = '#10b981';
+    btn.title = '클릭 시 미제출 과제 일일 자동 감점을 비활성화(끎)합니다.';
+  } else {
+    btn.innerHTML = '🔴 자동감점 끎';
+    btn.className = 'btn-danger';
+    btn.style.backgroundColor = '#ef4444';
+    btn.style.borderColor = '#ef4444';
+    btn.title = '클릭 시 미제출 과제 일일 자동 감점을 활성화(켬)합니다.';
+  }
+};
+window.updateAutoDeductionDashboardButton = updateAutoDeductionDashboardButton;
+
+const toggleAutoDeductionFromDashboard = () => {
+  config.auto_deduction_enabled = config.auto_deduction_enabled === false ? true : false;
+  
+  // 기본 설정 탭의 체크박스 상태도 동기화
+  const toggleEl = document.getElementById('auto-deduction-toggle');
+  if (toggleEl) {
+    toggleEl.checked = config.auto_deduction_enabled;
+  }
+  
+  saveData();
+  updateAutoDeductionDashboardButton();
+};
+window.toggleAutoDeductionFromDashboard = toggleAutoDeductionFromDashboard;
 
 // 8-1. 등급 이미지 업로드 파일 트리거 및 Base64 파싱
 const triggerGradeIconFileInput = (index) => {
