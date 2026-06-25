@@ -551,6 +551,11 @@ const applyRemoteData = (data) => {
   
   isFirebaseDataLoaded = true;
   isSyncingFromRemote = true;
+
+  // 캐시 기반 임시 표시 중이었다면 배너 제거
+  window.__showingCachedPortal = false;
+  const syncBanner = document.getElementById('portal-sync-banner');
+  if (syncBanner) syncBanner.remove();
   
   // 데이터 덮어쓰기
   students = data.students || students;
@@ -3924,49 +3929,89 @@ const renderStudentPortal = (studentId) => {
     return;
   }
 
-  // 파이어베이스 동기화 모드이고 아직 데이터를 받지 못한 경우 로딩 화면 표시
+  // 파이어베이스 동기화 모드이고 아직 데이터를 받지 못한 경우
   if (currentSyncMode === 'firebase' && !isFirebaseDataLoaded) {
-    const isFirebaseBlocked = (typeof firebase === 'undefined');
+    // ★ 캐시 우선 표시: localStorage에 이전 학급 데이터가 있으면 바로 렌더링
+    const cachedStudents = (() => {
+      try { return JSON.parse(localStorage.getItem('students')) || []; } catch(e) { return []; }
+    })();
+    const cachedStudent = cachedStudents.find(s => s.student_id === studentId);
     
-    document.getElementById('student-view').innerHTML = `
-      <style>
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
+    if (cachedStudent) {
+      // 캐시 데이터를 메모리에 적용하여 즉시 렌더링 (Firebase 수신 전 임시)
+      if (!students || students.length === 0 || students === window.__DEFAULT_STUDENTS) {
+        students = cachedStudents;
+        try { grades = JSON.parse(localStorage.getItem('grades')) || grades; } catch(e) {}
+        try { dailyLogs = JSON.parse(localStorage.getItem('dailyLogs')) || dailyLogs; } catch(e) {}
+        try { pointHistory = JSON.parse(localStorage.getItem('pointHistory')) || pointHistory; } catch(e) {}
+        try { config = JSON.parse(localStorage.getItem('config')) || config; } catch(e) {}
+        try { dailyAssignments = JSON.parse(localStorage.getItem('dailyAssignments')) || dailyAssignments; } catch(e) {}
+        try { absentLogs = JSON.parse(localStorage.getItem('absentLogs')) || absentLogs; } catch(e) {}
+        try { dailyAnnouncements = JSON.parse(localStorage.getItem('dailyAnnouncements')) || dailyAnnouncements; } catch(e) {}
+        try { teacherPasscode = localStorage.getItem('teacherPasscode') || teacherPasscode; } catch(e) {}
+      }
+      // 타이머 해제 후 바로 아래 렌더링 로직으로 통과 (캐시 배너는 applyRemoteData 후 제거)
+      if (window.portalLoadingTimer) {
+        clearTimeout(window.portalLoadingTimer);
+        window.portalLoadingTimer = null;
+      }
+      // 렌더링 후 "동기화 중" 배너 부착 (비동기)
+      window.__showingCachedPortal = true;
+      setTimeout(() => {
+        const existingBanner = document.getElementById('portal-sync-banner');
+        if (!existingBanner && window.__showingCachedPortal) {
+          const banner = document.createElement('div');
+          banner.id = 'portal-sync-banner';
+          banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,#3b82f6,#6366f1);color:#fff;text-align:center;padding:6px 12px;font-size:13px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,0.15);';
+          banner.innerHTML = '🔄 최신 데이터를 서버에서 불러오는 중...';
+          document.body.prepend(banner);
         }
-      </style>
-      <div class="portal-main-layout" style="display:flex; justify-content:center; align-items:center; min-height:80vh; padding: 20px;">
-        <div class="portal-card" style="max-width:400px; width:100%; text-align:center; padding:32px; border-radius:16px; box-shadow:0 10px 25px rgba(0,0,0,0.15); background:var(--bg-card); border:1px solid var(--border-color);">
-          <div class="loading-icon-spinner" style="font-size:48px; margin-bottom:16px; display:inline-block; ${isFirebaseBlocked ? '' : 'animation: spin 2s linear infinite;'}">${isFirebaseBlocked ? '⚠️' : '⏳'}</div>
-          <h2 style="color:var(--text-main); margin-bottom:8px; font-weight:800; font-size: 20px;">${isFirebaseBlocked ? '보안/차단 감지됨' : '서버 연결 중...'}</h2>
-          <p style="color:var(--text-muted); font-size:14px; margin-bottom:24px; line-height:1.5;">
-            ${isFirebaseBlocked 
-              ? '브라우저(네이버/웨일 등)의 광고 차단 또는 추적 방지 기능으로 인해 파이어베이스 서버 연결 도구가 차단되었습니다.' 
-              : '학급 실시간 동기화 서버에 연결하고 있습니다.<br>잠시만 기다려 주세요.'}
-          </p>
-          <div id="portal-loading-timeout" class="${isFirebaseBlocked ? '' : 'hidden'}">
-            <p style="color:var(--danger-color); font-size:13px; font-weight:bold; margin-bottom:16px;">
+      }, 50);
+      // 통과: 아래 렌더링 로직이 캐시 데이터로 실행됨
+    } else {
+      // 캐시 없음 → 스피너 표시 (3초 후 타임아웃 안내)
+      const isFirebaseBlocked = (typeof firebase === 'undefined');
+      
+      document.getElementById('student-view').innerHTML = `
+        <style>
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        </style>
+        <div class="portal-main-layout" style="display:flex; justify-content:center; align-items:center; min-height:80vh; padding: 20px;">
+          <div class="portal-card" style="max-width:400px; width:100%; text-align:center; padding:32px; border-radius:16px; box-shadow:0 10px 25px rgba(0,0,0,0.15); background:var(--bg-card); border:1px solid var(--border-color);">
+            <div class="loading-icon-spinner" style="font-size:48px; margin-bottom:16px; display:inline-block; ${isFirebaseBlocked ? '' : 'animation: spin 2s linear infinite;'}">${isFirebaseBlocked ? '⚠️' : '⏳'}</div>
+            <h2 style="color:var(--text-main); margin-bottom:8px; font-weight:800; font-size: 20px;">${isFirebaseBlocked ? '보안/차단 감지됨' : '서버 연결 중...'}</h2>
+            <p style="color:var(--text-muted); font-size:14px; margin-bottom:24px; line-height:1.5;">
               ${isFirebaseBlocked 
-                ? '실시간 기능(과제 완료 요청 등)이 작동하지 않을 수 있습니다.' 
-                : '⚠️ 실시간 서버 연결 시간이 초과되었습니다.<br>(인터넷 연결 또는 브라우저의 차단 설정을 확인해 주세요.)'}
+                ? '브라우저(네이버/웨일 등)의 광고 차단 또는 추적 방지 기능으로 인해 파이어베이스 서버 연결 도구가 차단되었습니다.' 
+                : '학급 실시간 동기화 서버에 연결하고 있습니다.<br>잠시만 기다려 주세요.'}
             </p>
-            <button onclick="bypassFirebaseLoadingForStudent('${studentId}')" class="btn-secondary" style="width:100%; padding:10px; font-weight:bold; font-size:13px;">오프라인(로컬) 모드로 진입</button>
+            <div id="portal-loading-timeout" class="${isFirebaseBlocked ? '' : 'hidden'}">
+              <p style="color:var(--danger-color); font-size:13px; font-weight:bold; margin-bottom:16px;">
+                ${isFirebaseBlocked 
+                  ? '실시간 기능(과제 완료 요청 등)이 작동하지 않을 수 있습니다.' 
+                  : '⚠️ 실시간 서버 연결 시간이 초과되었습니다.<br>(인터넷 연결 또는 브라우저의 차단 설정을 확인해 주세요.)'}
+              </p>
+              <button onclick="bypassFirebaseLoadingForStudent('${studentId}')" class="btn-secondary" style="width:100%; padding:10px; font-weight:bold; font-size:13px;">오프라인(로컬) 모드로 진입</button>
+            </div>
           </div>
         </div>
-      </div>
-    `;
-    
-    // 5초 후 타임아웃 메시지 노출
-    if (!window.portalLoadingTimer) {
-      window.portalLoadingTimer = setTimeout(() => {
-        const timeoutEl = document.getElementById('portal-loading-timeout');
-        if (timeoutEl) {
-          timeoutEl.classList.remove('hidden');
-        }
-        window.portalLoadingTimer = null;
-      }, 5000);
+      `;
+      
+      // 3초 후 타임아웃 메시지 노출 (5초 → 3초로 단축)
+      if (!window.portalLoadingTimer) {
+        window.portalLoadingTimer = setTimeout(() => {
+          const timeoutEl = document.getElementById('portal-loading-timeout');
+          if (timeoutEl) {
+            timeoutEl.classList.remove('hidden');
+          }
+          window.portalLoadingTimer = null;
+        }, 3000);
+      }
+      return;
     }
-    return;
   }
   
   // 만약 타이머가 돌고 있었다면 해제
