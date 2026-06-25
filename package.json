@@ -5,8 +5,9 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "build:student": "node scripts/build-student.js",
+    "pack": "npm run build:student && electron-builder --dir",
+    "dist": "npm run build:student && electron-builder"
   },
   "keywords": [],
   "author": "Teacher",
@@ -31,6 +32,7 @@
     "files": [
       "index.html",
       "app.js",
+      "student.js",
       "style.css",
       "main.js",
       "preload.js",
