@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Outfit:wght@300;400;500;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=1.0.13">
+  <link rel="stylesheet" href="style.css?v=1.0.14">
   <!-- Google Identity Services (GIS) SDK -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- Firebase JS SDK - async 병렬 로드 + 차단 감지 -->
@@ -341,7 +341,6 @@
               <input type="text" class="records-schedule-input" data-period="6" placeholder="수업 입력" style="flex: 1; min-width: 0; padding: 14px 16px; border: 2.5px solid #fde047; border-radius: 12px; font-family: inherit; font-size: 28px; font-weight: 800; outline: none; background: white; color: #713f12; box-sizing: border-box; height: auto; line-height: 1.2;">
             </div>
           </div>
-        </div>
         </div>
         
         <div class="table-responsive">
@@ -1215,7 +1214,7 @@
       var loadTeacherScript = isElectron || hash.startsWith('#teacher') || isTeacherPending || (isTeacherLoggedIn && !isStudentPath);
       
       window.__loadedScriptType = loadTeacherScript ? 'teacher' : 'student';
-      var scriptSrc = loadTeacherScript ? 'app.js?v=1.0.33' : 'student.js?v=1.0.33';
+      var scriptSrc = loadTeacherScript ? 'app.js?v=1.0.34' : 'student.js?v=1.0.34';
 
       console.log('[Dashboard] 로드할 스크립트 타입:', window.__loadedScriptType, '->', scriptSrc);
 
