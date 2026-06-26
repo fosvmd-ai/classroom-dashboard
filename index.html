@@ -196,9 +196,12 @@
 
         <!-- 📥 과제 승인 대기 내역 -->
         <div id="approvals-widget" class="widget-card approvals-widget hidden">
-          <div class="widget-header" style="border-bottom-color: rgba(56, 189, 248, 0.2);">
-            <h3 style="display:flex; align-items:center; gap:8px;">📥 과제 완료 승인 요청</h3>
-            <span id="approval-count-badge" class="approval-badge-count">0</span>
+          <div class="widget-header" style="border-bottom-color: rgba(56, 189, 248, 0.2); display: flex; justify-content: space-between; align-items: center; padding: 10px 14px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <h3 style="margin: 0; font-size: 14px;">📥 과제 완료 승인 요청</h3>
+              <span id="approval-count-badge" class="approval-badge-count">0</span>
+            </div>
+            <button id="btn-approve-all-requests" class="btn-success" style="padding: 4px 8px; font-size: 11px; font-weight: bold; border-radius: 6px; cursor: pointer; display: none;" onclick="approveAllTaskRequests()">✔️ 일괄 승인</button>
           </div>
           <div class="widget-body" style="padding: 6px 0;">
             <ul id="approval-requests-list" class="approval-requests-list" style="list-style: none; margin: 0; padding: 0;">
@@ -1115,7 +1118,7 @@
       var loadTeacherScript = isElectron || hash.startsWith('#teacher') || isTeacherPending || (isTeacherLoggedIn && !isStudentPath);
       
       window.__loadedScriptType = loadTeacherScript ? 'teacher' : 'student';
-      var scriptSrc = loadTeacherScript ? 'app.js?v=1.0.26' : 'student.js?v=1.0.26';
+      var scriptSrc = loadTeacherScript ? 'app.js?v=1.0.27' : 'student.js?v=1.0.27';
 
       console.log('[Dashboard] 로드할 스크립트 타입:', window.__loadedScriptType, '->', scriptSrc);
 

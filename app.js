@@ -4584,6 +4584,7 @@ const renderApprovalRequestsWidget = () => {
   const widgetEl = document.getElementById('approvals-widget');
   const countBadgeEl = document.getElementById('approval-count-badge');
   const listEl = document.getElementById('approval-requests-list');
+  const btnApproveAll = document.getElementById('btn-approve-all-requests');
   
   if (!widgetEl || !listEl || !countBadgeEl) return;
   
@@ -4627,10 +4628,12 @@ const renderApprovalRequestsWidget = () => {
   if (requests.length === 0) {
     widgetEl.classList.add('hidden');
     listEl.innerHTML = '';
+    if (btnApproveAll) btnApproveAll.style.display = 'none';
     return;
   }
   
   widgetEl.classList.remove('hidden');
+  if (btnApproveAll) btnApproveAll.style.display = 'inline-block';
   listEl.innerHTML = '';
   
   requests.forEach(req => {
@@ -4735,17 +4738,6 @@ const approveTaskRequest = (studentId, dateKey, taskId, taskName, points) => {
   }
   
   playAudioEffect('chime');
-  
-  // 날짜 정보 포맷팅 (예: 6월 16일자)
-  let dateDisplay = "";
-  try {
-    const parts = dateKey.split('-');
-    if (parts.length === 3) {
-      dateDisplay = `${parseInt(parts[1], 10)}월 ${parseInt(parts[2], 10)}일자 `;
-    }
-  } catch(e) {}
-  
-  alert(`✔️ ${student ? student.name : studentId} 학생의 ${dateDisplay}'${taskName}' 과제가 승인 처리되었습니다 (+${points}점).`);
   renderTeacherDashboard();
 };
 
@@ -4775,8 +4767,113 @@ const rejectTaskRequest = (studentId, dateKey, taskId, taskName) => {
   }
   
   playAudioEffect('buzz');
-  const student = students.find(s => s.student_id === studentId);
-  alert(`❌ ${student ? student.name : studentId} 학생의 '${taskName}' 과제 요청이 반려되었습니다.`);
+  renderTeacherDashboard();
+};
+
+const approveAllTaskRequests = () => {
+  const requests = [];
+  Object.entries(pendingRequests).forEach(([dateKey, dateObj]) => {
+    Object.entries(dateObj).forEach(([studentId, taskObj]) => {
+      Object.entries(taskObj).forEach(([taskId, val]) => {
+        const isRequested = val === true || (val && (val.requested === true || val === 'true'));
+        if (isRequested) {
+          const student = students.find(s => s.student_id === studentId);
+          const dayTasks = dailyAssignments[dateKey] || [];
+          const task = dayTasks.find(t => t.id === taskId);
+          
+          const finalTaskName = (val && typeof val === 'object' && val.taskName) || (task ? task.name : `알 수 없는 과제 (${taskId})`);
+          const finalPoints = (val && typeof val === 'object' && typeof val.points === 'number') ? val.points : (task ? task.points : 3);
+          
+          if (student) {
+            requests.push({
+              dateKey,
+              studentId,
+              taskId,
+              taskName: finalTaskName,
+              points: finalPoints
+            });
+          }
+        }
+      });
+    });
+  });
+
+  if (requests.length === 0) return;
+
+  const confirmed = confirm(`정말로 대기 중인 ${requests.length}건의 과제 완료 요청을 모두 일괄 승인하시겠습니까?`);
+  if (!confirmed) return;
+
+  const nowStr = new Date().toISOString();
+  const firebaseUpdates = {};
+  const isFirebase = (currentSyncMode === 'firebase' && dbRef);
+
+  requests.forEach(req => {
+    const { dateKey, studentId, taskId, taskName, points } = req;
+    if (!dailyLogs[dateKey]) dailyLogs[dateKey] = {};
+    if (!dailyLogs[dateKey][studentId]) dailyLogs[dateKey][studentId] = {};
+    
+    let targetTaskId = taskId;
+    const targetTasks = dailyAssignments[dateKey] || [];
+    const cleanName = (str) => {
+      if (!str) return '';
+      return str.replace(/[^가-힣a-zA-Z0-9]/g, '');
+    };
+    const targetClean = cleanName(taskName);
+    const matchingTask = targetTasks.find(t => cleanName(t.name) === targetClean);
+    if (matchingTask) {
+      targetTaskId = matchingTask.id;
+    }
+    
+    dailyLogs[dateKey][studentId][targetTaskId] = true;
+    
+    const student = students.find(s => s.student_id === studentId);
+    if (student) {
+      student.total_points = (student.total_points || 0) + points;
+    }
+    
+    pointHistory.push({
+      student_id: studentId,
+      timestamp: nowStr,
+      points_changed: points,
+      reason: `${taskName} 완료 승인 (모바일 제출 - 일괄 승인)`,
+      assignment_date: dateKey,
+      task_id: targetTaskId
+    });
+    
+    if (pendingRequests[dateKey] && pendingRequests[dateKey][studentId]) {
+      delete pendingRequests[dateKey][studentId][taskId];
+      if (Object.keys(pendingRequests[dateKey][studentId]).length === 0) {
+        delete pendingRequests[dateKey][studentId];
+      }
+      if (Object.keys(pendingRequests[dateKey]).length === 0) {
+        delete pendingRequests[dateKey];
+      }
+    }
+
+    if (isFirebase) {
+      firebaseUpdates[`dailyLogs/${dateKey}/${studentId}/${targetTaskId}`] = true;
+      if (student) {
+        const idx = students.findIndex(s => s.student_id === studentId);
+        if (idx !== -1) {
+          firebaseUpdates[`students/${idx}/total_points`] = student.total_points;
+        }
+      }
+      firebaseUpdates[`pendingRequests/${dateKey}/${studentId}/${taskId}`] = null;
+    }
+  });
+
+  saveData(true);
+
+  if (isFirebase) {
+    firebaseUpdates[`pointHistory`] = pointHistory;
+    dbRef.update(firebaseUpdates).catch(err => {
+      console.error("[Firebase] 일괄 승인 처리 업로드 실패:", err);
+      alert("⚠️ [서버 승인 실패] 인터넷 연결 상태나 데이터베이스 권한을 확인해주세요.");
+    });
+  }
+
+  playAudioEffect('chime');
+  alert(`✔️ 총 ${requests.length}건의 과제 완료 요청이 모두 일괄 승인되었습니다.`);
   renderTeacherDashboard();
 };
 
@@ -5432,6 +5529,7 @@ window.deleteCurrentDayAssignments = deleteCurrentDayAssignments;
 window.requestTaskApproval = requestTaskApproval;
 window.approveTaskRequest = approveTaskRequest;
 window.rejectTaskRequest = rejectTaskRequest;
+window.approveAllTaskRequests = approveAllTaskRequests;
 window.renderApprovalRequestsWidget = renderApprovalRequestsWidget;
 
 // Expose currentDashboardDate with a getter/setter to support inline onclick handlers
