@@ -85,6 +85,7 @@ if (config.auto_deduction_enabled === undefined) {
 
 // 날짜별 알림장 데이터 로드 및 마이그레이션
 let dailyAnnouncements = JSON.parse(localStorage.getItem('dailyAnnouncements')) || {};
+let dailySchedules = JSON.parse(localStorage.getItem('dailySchedules')) || {};
 let currentAnnouncementDate = getTodayDateString();
 let currentPortalAnnouncementDate = getTodayDateString();
 
@@ -181,6 +182,7 @@ const saveData = (skipFirebase = false) => {
   localStorage.setItem('processedDeductionDates', JSON.stringify(processedDeductionDates));
   localStorage.setItem('teacherPasscode', String(teacherPasscode));
   localStorage.setItem('dailyAnnouncements', JSON.stringify(dailyAnnouncements));
+  localStorage.setItem('dailySchedules', JSON.stringify(dailySchedules));
 
   if (skipFirebase) return; // 로컬만 저장하고 파이어베이스 동기화 건너뜀
   if (isSyncingFromRemote) return;
@@ -226,7 +228,8 @@ const saveData = (skipFirebase = false) => {
       absentLogs,
       processedDeductionDates,
       teacherPasscode,
-      dailyAnnouncements
+      dailyAnnouncements,
+      dailySchedules
     }).catch(err => {
       console.error("[Firebase] 백그라운드 자동 업로드 실패:", err);
       // 교사 화면인 경우 알림창 표시 (권한 거부 또는 연결 실패 인지 유도)
@@ -569,6 +572,7 @@ const applyRemoteData = (data) => {
   processedDeductionDates = data.processedDeductionDates || [];
   teacherPasscode = data.teacherPasscode || '1234';
   dailyAnnouncements = data.dailyAnnouncements || dailyAnnouncements;
+  dailySchedules = data.dailySchedules || dailySchedules;
   
   // 로컬 localStorage에도 영구 보존
   localStorage.setItem('students', JSON.stringify(students));
@@ -582,6 +586,7 @@ const applyRemoteData = (data) => {
   localStorage.setItem('processedDeductionDates', JSON.stringify(processedDeductionDates));
   localStorage.setItem('teacherPasscode', String(teacherPasscode));
   localStorage.setItem('dailyAnnouncements', JSON.stringify(dailyAnnouncements));
+  localStorage.setItem('dailySchedules', JSON.stringify(dailySchedules));
   
   isSyncingFromRemote = false;
   
@@ -715,7 +720,8 @@ const initFirebaseSync = () => {
               absentLogs,
               processedDeductionDates,
               teacherPasscode,
-              dailyAnnouncements
+              dailyAnnouncements,
+              dailySchedules
             }).catch(err => {
               console.error("[Firebase] 원격 초기화 오류:", err);
             });
@@ -763,6 +769,7 @@ const initFirebaseSync = () => {
           localStorage.removeItem('absentLogs');
           localStorage.removeItem('processedDeductionDates');
           localStorage.removeItem('dailyAnnouncements');
+          localStorage.removeItem('dailySchedules');
           localStorage.removeItem('teacherPasscode');
           
           // 메모리 상태도 초기화
@@ -775,6 +782,7 @@ const initFirebaseSync = () => {
           absentLogs = {};
           processedDeductionDates = [];
           dailyAnnouncements = {};
+          dailySchedules = {};
           hasAttemptedInitialization = false;
 
           // classroomSyncKey를 새 UID로 업데이트하고 저장
@@ -902,6 +910,7 @@ const loginWithFirebaseGoogle = async () => {
     localStorage.removeItem('absentLogs');
     localStorage.removeItem('processedDeductionDates');
     localStorage.removeItem('dailyAnnouncements');
+    localStorage.removeItem('dailySchedules');
     localStorage.removeItem('teacherPasscode');
     localStorage.removeItem('firebaseUser');
 
@@ -950,6 +959,7 @@ const logoutFirebaseGoogle = () => {
   localStorage.removeItem('absentLogs');
   localStorage.removeItem('processedDeductionDates');
   localStorage.removeItem('dailyAnnouncements');
+  localStorage.removeItem('dailySchedules');
   localStorage.removeItem('teacherPasscode');
 
   if (firebaseConfig) {
@@ -1121,7 +1131,9 @@ const uploadGoogleDriveBackupFile = async (fileId) => {
     pendingRequests,
     absentLogs,
     processedDeductionDates,
-    teacherPasscode
+    teacherPasscode,
+    dailyAnnouncements,
+    dailySchedules
   });
   
   const boundary = 'foo_bar_baz';
@@ -2227,6 +2239,7 @@ const renderStudentPortal = (studentId) => {
   if (portalAnnounceEl) {
     portalAnnounceEl.innerText = dailyAnnouncements[currentPortalAnnouncementDate] || "알림장이 없습니다.";
   }
+  updatePortalScheduleView();
   
   const iconEl = document.getElementById('portal-grade-icon');
   const emojiEl = document.getElementById('portal-grade-emoji');
@@ -3052,6 +3065,36 @@ const autoSyncOnLoad = async () => {
 
 
 
+const updatePortalScheduleView = () => {
+  const schedule = dailySchedules[currentPortalAnnouncementDate] || ["", "", "", "", "", ""];
+  for (let i = 1; i <= 6; i++) {
+    const el = document.getElementById(`portal-schedule-p${i}`);
+    if (el) {
+      el.innerText = schedule[i - 1] || "-";
+    }
+  }
+};
+
+const togglePortalAnnouncementMode = () => {
+  const contentEl = document.getElementById('portal-announcement-content');
+  const scheduleContainer = document.getElementById('portal-schedule-container');
+  const btn = document.getElementById('portal-btn-toggle-schedule');
+  if (!scheduleContainer || !contentEl || !btn) return;
+  
+  if (scheduleContainer.classList.contains('hidden')) {
+    scheduleContainer.classList.remove('hidden');
+    contentEl.classList.add('hidden');
+    btn.innerText = '📢 알림장 보기';
+    updatePortalScheduleView();
+  } else {
+    scheduleContainer.classList.add('hidden');
+    contentEl.classList.remove('hidden');
+    btn.innerText = '📅 일정 보기';
+  }
+};
+
+window.togglePortalAnnouncementMode = togglePortalAnnouncementMode;
+
 // 알림장 날짜 변경 이벤트 핸들러 (이벤트 위임)
 document.addEventListener('change', (e) => {
   if (e.target && e.target.id === 'announcement-date-input') {
@@ -3061,6 +3104,9 @@ document.addEventListener('change', (e) => {
     if (displayEl) displayEl.innerText = formatKoreanDate(currentAnnouncementDate);
     if (contentEl) {
       contentEl.innerText = dailyAnnouncements[currentAnnouncementDate] || "";
+    }
+    if (typeof loadScheduleDataToInputs === 'function') {
+      loadScheduleDataToInputs();
     }
   }
   
@@ -3072,6 +3118,7 @@ document.addEventListener('change', (e) => {
     if (contentEl) {
       contentEl.innerText = dailyAnnouncements[currentPortalAnnouncementDate] || "알림장이 없습니다.";
     }
+    updatePortalScheduleView();
   }
 });
 

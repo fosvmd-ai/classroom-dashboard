@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Outfit:wght@300;400;500;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=1.0.7">
+  <link rel="stylesheet" href="style.css?v=1.0.8">
   <!-- Google Identity Services (GIS) SDK -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- Firebase JS SDK - async 병렬 로드 + 차단 감지 -->
@@ -181,16 +181,45 @@
       <!-- 우측: 교실 유틸리티 사이드바 (25%) -->
       <aside class="sidebar-section">
         <!-- 📢 오늘의 알림장 -->
-        <div class="widget-card announcement-widget" style="cursor: text;">
+        <div class="widget-card announcement-widget">
           <div class="widget-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; width: 100%;">
-            <h3 style="margin: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 6px;">📢 오늘의 알림장 <span style="font-size:11px; color:var(--text-muted); font-weight:normal;">(클릭 시 즉시 편집 가능)</span></h3>
+            <h3 style="margin: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 6px;">
+              <span>📢 오늘의 알림장</span>
+              <button id="btn-toggle-schedule" onclick="toggleAnnouncementMode()" style="padding: 4px 8px; font-size: 11px; font-weight: bold; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer; background: white; color: var(--text-color); margin-left: 6px; line-height: 1.2;">📅 일정 보기</button>
+            </h3>
             <div style="display: flex; align-items: center; gap: 8px; margin-left: auto;">
               <span id="announcement-date-display" style="font-size: 18px; font-weight: 800; color: var(--text-color); margin-right: 4px;"></span>
               <input type="date" id="announcement-date-input" style="font-family: inherit; font-size: 12px; font-weight: bold; padding: 4px 6px; border: 1px solid var(--border-color); border-radius: 6px; background: white; color: var(--text-color); cursor: pointer; outline: none;">
             </div>
           </div>
-          <div class="widget-body">
-            <p id="announcement-content" contenteditable="true" style="outline: none; width: 100%; min-height: 120px;">로딩 중...</p>
+          <div class="widget-body" style="cursor: text;">
+            <p id="announcement-content" contenteditable="true" style="outline: none; width: 100%; min-height: 120px; margin: 0;">로딩 중...</p>
+            <div id="schedule-editor-container" class="hidden" style="display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 10px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-weight: bold; width: 45px; text-align: right; color: var(--text-color); font-size: 13px;">1교시:</span>
+                <input type="text" class="schedule-input" data-period="1" placeholder="수업 입력" style="flex: 1; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; font-family: inherit; font-size: 13px; outline: none; background: white; color: var(--text-color);">
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-weight: bold; width: 45px; text-align: right; color: var(--text-color); font-size: 13px;">2교시:</span>
+                <input type="text" class="schedule-input" data-period="2" placeholder="수업 입력" style="flex: 1; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; font-family: inherit; font-size: 13px; outline: none; background: white; color: var(--text-color);">
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-weight: bold; width: 45px; text-align: right; color: var(--text-color); font-size: 13px;">3교시:</span>
+                <input type="text" class="schedule-input" data-period="3" placeholder="수업 입력" style="flex: 1; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; font-family: inherit; font-size: 13px; outline: none; background: white; color: var(--text-color);">
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-weight: bold; width: 45px; text-align: right; color: var(--text-color); font-size: 13px;">4교시:</span>
+                <input type="text" class="schedule-input" data-period="4" placeholder="수업 입력" style="flex: 1; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; font-family: inherit; font-size: 13px; outline: none; background: white; color: var(--text-color);">
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-weight: bold; width: 45px; text-align: right; color: var(--text-color); font-size: 13px;">5교시:</span>
+                <input type="text" class="schedule-input" data-period="5" placeholder="수업 입력" style="flex: 1; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; font-family: inherit; font-size: 13px; outline: none; background: white; color: var(--text-color);">
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-weight: bold; width: 45px; text-align: right; color: var(--text-color); font-size: 13px;">6교시:</span>
+                <input type="text" class="schedule-input" data-period="6" placeholder="수업 입력" style="flex: 1; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; font-family: inherit; font-size: 13px; outline: none; background: white; color: var(--text-color);">
+              </div>
+            </div>
           </div>
         </div>
 
@@ -277,8 +306,35 @@
         <div class="portal-card announcement-card" style="margin-bottom: 20px; background: #fffdf0; border-color: #fde047; padding: 8px 12px; border-radius: 12px; border: 1px solid #fde047; box-shadow: none;">
           <h3 style="color: #713f12; margin-top: 0; margin-bottom: 8px; font-size: 15px; border-bottom: 1px solid #fef08a; padding-bottom: 6px; display: flex; align-items: center; justify-content: space-between; border-top: none; padding-top: 0;">
             <span>📢 이 날짜의 알림장 <span style="font-size:11px; color:var(--text-muted); font-weight:normal; margin-left:6px;">(클릭 시 즉시 편집 가능)</span></span>
+            <button id="btn-toggle-records-schedule" onclick="toggleRecordsAnnouncementMode()" style="padding: 3px 8px; font-size: 11px; font-weight: bold; border-radius: 6px; border: 1px solid #fde047; cursor: pointer; background: #fffdf0; color: #713f12; margin-left: 6px; line-height: 1.2;">📅 일정 보기</button>
           </h3>
           <p id="records-detail-announcement-content" contenteditable="true" style="outline: none; font-size: 20px; line-height: 1.6; color: #713f12; white-space: pre-wrap; font-weight: bold; margin: 0; min-height: 40px; padding: 6px 10px; text-align: left; width: 100%;">알림장이 없습니다.</p>
+          <div id="records-schedule-editor-container" class="hidden" style="display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 10px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-weight: bold; width: 45px; text-align: right; color: #713f12; font-size: 13px;">1교시:</span>
+              <input type="text" class="records-schedule-input" data-period="1" placeholder="수업 입력" style="flex: 1; padding: 6px 10px; border: 1px solid #fde047; border-radius: 6px; font-family: inherit; font-size: 13px; outline: none; background: white; color: #713f12;">
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-weight: bold; width: 45px; text-align: right; color: #713f12; font-size: 13px;">2교시:</span>
+              <input type="text" class="records-schedule-input" data-period="2" placeholder="수업 입력" style="flex: 1; padding: 6px 10px; border: 1px solid #fde047; border-radius: 6px; font-family: inherit; font-size: 13px; outline: none; background: white; color: #713f12;">
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-weight: bold; width: 45px; text-align: right; color: #713f12; font-size: 13px;">3교시:</span>
+              <input type="text" class="records-schedule-input" data-period="3" placeholder="수업 입력" style="flex: 1; padding: 6px 10px; border: 1px solid #fde047; border-radius: 6px; font-family: inherit; font-size: 13px; outline: none; background: white; color: #713f12;">
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-weight: bold; width: 45px; text-align: right; color: #713f12; font-size: 13px;">4교시:</span>
+              <input type="text" class="records-schedule-input" data-period="4" placeholder="수업 입력" style="flex: 1; padding: 6px 10px; border: 1px solid #fde047; border-radius: 6px; font-family: inherit; font-size: 13px; outline: none; background: white; color: #713f12;">
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-weight: bold; width: 45px; text-align: right; color: #713f12; font-size: 13px;">5교시:</span>
+              <input type="text" class="records-schedule-input" data-period="5" placeholder="수업 입력" style="flex: 1; padding: 6px 10px; border: 1px solid #fde047; border-radius: 6px; font-family: inherit; font-size: 13px; outline: none; background: white; color: #713f12;">
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-weight: bold; width: 45px; text-align: right; color: #713f12; font-size: 13px;">6교시:</span>
+              <input type="text" class="records-schedule-input" data-period="6" placeholder="수업 입력" style="flex: 1; padding: 6px 10px; border: 1px solid #fde047; border-radius: 6px; font-family: inherit; font-size: 13px; outline: none; background: white; color: #713f12;">
+            </div>
+          </div>
         </div>
         
         <div class="table-responsive">
@@ -806,13 +862,44 @@
       <!-- 📢 오늘의 알림장 -->
       <section class="portal-card announcement-card" style="margin-bottom: 20px; background: #fffdf0; border-color: #fde047; padding: 8px 12px;">
         <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #fef08a; padding-bottom: 8px; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; width: 100%;">
-          <h3 style="color: #713f12; margin: 0; border: none; padding: 0;">📢 오늘의 알림장</h3>
+          <h3 style="color: #713f12; margin: 0; border: none; padding: 0; display: flex; align-items: center; gap: 8px;">
+            <span>📢 오늘의 알림장</span>
+            <button id="portal-btn-toggle-schedule" onclick="togglePortalAnnouncementMode()" style="padding: 3px 8px; font-size: 11px; font-weight: bold; border-radius: 6px; border: 1px solid #fde047; cursor: pointer; background: #fffdf0; color: #713f12; line-height: 1.2;">📅 일정 보기</button>
+          </h3>
           <div style="display: flex; align-items: center; gap: 8px; margin-left: auto;">
             <span id="portal-announcement-date-display" style="font-size: 20px; font-weight: 800; color: #713f12; margin-right: 4px;"></span>
             <input type="date" id="portal-announcement-date-input" style="font-family: inherit; font-size: 12px; font-weight: bold; padding: 4px 6px; border: 1px solid #fde047; border-radius: 6px; background: #fef08a; color: #713f12; cursor: pointer; outline: none;">
           </div>
         </div>
         <p id="portal-announcement-content" style="font-size: 22px; line-height: 1.6; color: #713f12; white-space: pre-wrap; font-weight: bold; padding: 6px 10px; text-align: left; margin: 0;">알림장이 없습니다.</p>
+        
+        <!-- 오늘의 일정 (Student Portal Schedule Grid) -->
+        <div id="portal-schedule-container" class="hidden" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; width: 100%; margin-top: 10px;">
+          <div style="background: #fef08a; border: 1px solid #fde047; border-radius: 10px; padding: 10px; text-align: center; display: flex; flex-direction: column; justify-content: center; min-height: 80px;">
+            <div style="font-size: 12px; font-weight: bold; color: #a16207; margin-bottom: 4px;">1교시</div>
+            <div id="portal-schedule-p1" style="font-size: 16px; font-weight: bold; color: #713f12; min-height: 24px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</div>
+          </div>
+          <div style="background: #fef08a; border: 1px solid #fde047; border-radius: 10px; padding: 10px; text-align: center; display: flex; flex-direction: column; justify-content: center; min-height: 80px;">
+            <div style="font-size: 12px; font-weight: bold; color: #a16207; margin-bottom: 4px;">2교시</div>
+            <div id="portal-schedule-p2" style="font-size: 16px; font-weight: bold; color: #713f12; min-height: 24px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</div>
+          </div>
+          <div style="background: #fef08a; border: 1px solid #fde047; border-radius: 10px; padding: 10px; text-align: center; display: flex; flex-direction: column; justify-content: center; min-height: 80px;">
+            <div style="font-size: 12px; font-weight: bold; color: #a16207; margin-bottom: 4px;">3교시</div>
+            <div id="portal-schedule-p3" style="font-size: 16px; font-weight: bold; color: #713f12; min-height: 24px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</div>
+          </div>
+          <div style="background: #fef08a; border: 1px solid #fde047; border-radius: 10px; padding: 10px; text-align: center; display: flex; flex-direction: column; justify-content: center; min-height: 80px;">
+            <div style="font-size: 12px; font-weight: bold; color: #a16207; margin-bottom: 4px;">4교시</div>
+            <div id="portal-schedule-p4" style="font-size: 16px; font-weight: bold; color: #713f12; min-height: 24px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</div>
+          </div>
+          <div style="background: #fef08a; border: 1px solid #fde047; border-radius: 10px; padding: 10px; text-align: center; display: flex; flex-direction: column; justify-content: center; min-height: 80px;">
+            <div style="font-size: 12px; font-weight: bold; color: #a16207; margin-bottom: 4px;">5교시</div>
+            <div id="portal-schedule-p5" style="font-size: 16px; font-weight: bold; color: #713f12; min-height: 24px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</div>
+          </div>
+          <div style="background: #fef08a; border: 1px solid #fde047; border-radius: 10px; padding: 10px; text-align: center; display: flex; flex-direction: column; justify-content: center; min-height: 80px;">
+            <div style="font-size: 12px; font-weight: bold; color: #a16207; margin-bottom: 4px;">6교시</div>
+            <div id="portal-schedule-p6" style="font-size: 16px; font-weight: bold; color: #713f12; min-height: 24px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</div>
+          </div>
+        </div>
       </section>
 
       <!-- 중단: 오늘 과제 & 미제출 과제 (Option B) -->
@@ -1118,7 +1205,7 @@
       var loadTeacherScript = isElectron || hash.startsWith('#teacher') || isTeacherPending || (isTeacherLoggedIn && !isStudentPath);
       
       window.__loadedScriptType = loadTeacherScript ? 'teacher' : 'student';
-      var scriptSrc = loadTeacherScript ? 'app.js?v=1.0.27' : 'student.js?v=1.0.27';
+      var scriptSrc = loadTeacherScript ? 'app.js?v=1.0.28' : 'student.js?v=1.0.28';
 
       console.log('[Dashboard] 로드할 스크립트 타입:', window.__loadedScriptType, '->', scriptSrc);
 

@@ -85,6 +85,7 @@ if (config.auto_deduction_enabled === undefined) {
 
 // 날짜별 알림장 데이터 로드 및 마이그레이션
 let dailyAnnouncements = JSON.parse(localStorage.getItem('dailyAnnouncements')) || {};
+let dailySchedules = JSON.parse(localStorage.getItem('dailySchedules')) || {};
 let currentAnnouncementDate = getTodayDateString();
 let currentPortalAnnouncementDate = getTodayDateString();
 
@@ -181,6 +182,7 @@ const saveData = (skipFirebase = false) => {
   localStorage.setItem('processedDeductionDates', JSON.stringify(processedDeductionDates));
   localStorage.setItem('teacherPasscode', String(teacherPasscode));
   localStorage.setItem('dailyAnnouncements', JSON.stringify(dailyAnnouncements));
+  localStorage.setItem('dailySchedules', JSON.stringify(dailySchedules));
 
   if (skipFirebase) return; // 로컬만 저장하고 파이어베이스 동기화 건너뜀
   if (isSyncingFromRemote) return;
@@ -226,7 +228,8 @@ const saveData = (skipFirebase = false) => {
       absentLogs,
       processedDeductionDates,
       teacherPasscode,
-      dailyAnnouncements
+      dailyAnnouncements,
+      dailySchedules
     }).catch(err => {
       console.error("[Firebase] 백그라운드 자동 업로드 실패:", err);
       // 교사 화면인 경우 알림창 표시 (권한 거부 또는 연결 실패 인지 유도)
@@ -569,6 +572,7 @@ const applyRemoteData = (data) => {
   processedDeductionDates = data.processedDeductionDates || [];
   teacherPasscode = data.teacherPasscode || '1234';
   dailyAnnouncements = data.dailyAnnouncements || dailyAnnouncements;
+  dailySchedules = data.dailySchedules || dailySchedules;
   
   // 로컬 localStorage에도 영구 보존
   localStorage.setItem('students', JSON.stringify(students));
@@ -582,6 +586,7 @@ const applyRemoteData = (data) => {
   localStorage.setItem('processedDeductionDates', JSON.stringify(processedDeductionDates));
   localStorage.setItem('teacherPasscode', String(teacherPasscode));
   localStorage.setItem('dailyAnnouncements', JSON.stringify(dailyAnnouncements));
+  localStorage.setItem('dailySchedules', JSON.stringify(dailySchedules));
   
   isSyncingFromRemote = false;
   
@@ -715,7 +720,8 @@ const initFirebaseSync = () => {
               absentLogs,
               processedDeductionDates,
               teacherPasscode,
-              dailyAnnouncements
+              dailyAnnouncements,
+              dailySchedules
             }).catch(err => {
               console.error("[Firebase] 원격 초기화 오류:", err);
             });
@@ -763,6 +769,7 @@ const initFirebaseSync = () => {
           localStorage.removeItem('absentLogs');
           localStorage.removeItem('processedDeductionDates');
           localStorage.removeItem('dailyAnnouncements');
+          localStorage.removeItem('dailySchedules');
           localStorage.removeItem('teacherPasscode');
           
           // 메모리 상태도 초기화
@@ -775,6 +782,7 @@ const initFirebaseSync = () => {
           absentLogs = {};
           processedDeductionDates = [];
           dailyAnnouncements = {};
+          dailySchedules = {};
           hasAttemptedInitialization = false;
 
           // classroomSyncKey를 새 UID로 업데이트하고 저장
@@ -902,6 +910,7 @@ const loginWithFirebaseGoogle = async () => {
     localStorage.removeItem('absentLogs');
     localStorage.removeItem('processedDeductionDates');
     localStorage.removeItem('dailyAnnouncements');
+    localStorage.removeItem('dailySchedules');
     localStorage.removeItem('teacherPasscode');
     localStorage.removeItem('firebaseUser');
 
@@ -950,6 +959,7 @@ const logoutFirebaseGoogle = () => {
   localStorage.removeItem('absentLogs');
   localStorage.removeItem('processedDeductionDates');
   localStorage.removeItem('dailyAnnouncements');
+  localStorage.removeItem('dailySchedules');
   localStorage.removeItem('teacherPasscode');
 
   if (firebaseConfig) {
@@ -1121,7 +1131,9 @@ const uploadGoogleDriveBackupFile = async (fileId) => {
     pendingRequests,
     absentLogs,
     processedDeductionDates,
-    teacherPasscode
+    teacherPasscode,
+    dailyAnnouncements,
+    dailySchedules
   });
   
   const boundary = 'foo_bar_baz';
@@ -2195,6 +2207,7 @@ const renderTeacherDashboard = () => {
   if (announceContentEl && document.activeElement !== announceContentEl) {
     announceContentEl.innerText = announceText;
   }
+  loadScheduleDataToInputs();
   updateWeeklyLeaderboard();
   updateClassProgress();
   renderApprovalRequestsWidget();
@@ -2720,6 +2733,7 @@ const showDateDetail = (dateKey) => {
   if (detailAnnounceEl) {
     detailAnnounceEl.innerText = dailyAnnouncements[dateKey] || "";
   }
+  loadDetailScheduleDataToInputs();
 
   renderDailyRecordsTable();
 };
@@ -4181,6 +4195,7 @@ const renderStudentPortal = (studentId) => {
   if (portalAnnounceEl) {
     portalAnnounceEl.innerText = dailyAnnouncements[currentPortalAnnouncementDate] || "알림장이 없습니다.";
   }
+  updatePortalScheduleView();
   
   const iconEl = document.getElementById('portal-grade-icon');
   const emojiEl = document.getElementById('portal-grade-emoji');
@@ -5266,6 +5281,7 @@ const loginAsTeacher = () => {
     localStorage.removeItem('absentLogs');
     localStorage.removeItem('processedDeductionDates');
     localStorage.removeItem('dailyAnnouncements');
+    localStorage.removeItem('dailySchedules');
     localStorage.removeItem('teacherPasscode');
     localStorage.removeItem('firebaseUser');
     
@@ -5324,7 +5340,8 @@ const exportClassroomData = () => {
     absentLogs: JSON.parse(localStorage.getItem('absentLogs')) || {},
     processedDeductionDates: JSON.parse(localStorage.getItem('processedDeductionDates')) || [],
     teacherPasscode: localStorage.getItem('teacherPasscode') || '1234',
-    dailyAnnouncements: JSON.parse(localStorage.getItem('dailyAnnouncements')) || {}
+    dailyAnnouncements: JSON.parse(localStorage.getItem('dailyAnnouncements')) || {},
+    dailySchedules: JSON.parse(localStorage.getItem('dailySchedules')) || {}
   };
 
   const jsonString = JSON.stringify(backupData, null, 2);
@@ -5383,6 +5400,7 @@ const importClassroomData = (event) => {
       localStorage.setItem('processedDeductionDates', JSON.stringify(data.processedDeductionDates || []));
       localStorage.setItem('teacherPasscode', String(data.teacherPasscode || '1234'));
       localStorage.setItem('dailyAnnouncements', JSON.stringify(data.dailyAnnouncements || {}));
+      localStorage.setItem('dailySchedules', JSON.stringify(data.dailySchedules || {}));
 
       // 만약 파이어베이스가 연동되어 있다면, 리로드 전 파이어베이스에도 즉시 업로드하여 덮어씌워짐 방지
       if (currentSyncMode === 'firebase' && dbRef) {
@@ -5397,6 +5415,7 @@ const importClassroomData = (event) => {
         processedDeductionDates = data.processedDeductionDates || [];
         teacherPasscode = String(data.teacherPasscode || '1234');
         dailyAnnouncements = data.dailyAnnouncements || {};
+        dailySchedules = data.dailySchedules || {};
 
         dbRef.set({
           students,
@@ -5409,7 +5428,8 @@ const importClassroomData = (event) => {
           absentLogs,
           processedDeductionDates,
           teacherPasscode,
-          dailyAnnouncements
+          dailyAnnouncements,
+          dailySchedules
         }).then(() => {
           alert("🎉 학급 데이터 로컬 복원 및 파이어베이스 동기화 업로드가 완료되었습니다!");
           location.reload();
@@ -5435,6 +5455,7 @@ const importClassroomData = (event) => {
         processedDeductionDates = data.processedDeductionDates || [];
         teacherPasscode = String(data.teacherPasscode || '1234');
         dailyAnnouncements = data.dailyAnnouncements || {};
+        dailySchedules = data.dailySchedules || {};
 
         uploadGoogleDriveBackupFile(googleDriveFileId).then(() => {
           alert("🎉 학급 데이터 로컬 복원 및 구글 드라이브 동기화 업로드가 완료되었습니다!");
@@ -5470,6 +5491,7 @@ const archiveAndResetNewSemester = () => {
   pointHistory = [];
   dailyAssignments = {};
   dailyAnnouncements = {};
+  dailySchedules = {};
   pendingRequests = {};
   absentLogs = {};
   processedDeductionDates = [];
@@ -6203,6 +6225,10 @@ const initAnnouncementEditor = () => {
     const widgetBody = contentEl.closest('.widget-body');
     if (widgetBody) {
       widgetBody.addEventListener('click', (e) => {
+        const scheduleContainer = document.getElementById('schedule-editor-container');
+        if (scheduleContainer && !scheduleContainer.classList.contains('hidden')) {
+          return;
+        }
         if (e.target !== contentEl) {
           contentEl.focus();
           
@@ -6253,7 +6279,165 @@ const initDetailAnnouncementEditor = () => {
     });
   }
 };
+
+const loadScheduleDataToInputs = () => {
+  const schedule = dailySchedules[currentAnnouncementDate] || ["", "", "", "", "", ""];
+  const inputs = document.querySelectorAll('.schedule-input');
+  inputs.forEach(input => {
+    const period = parseInt(input.getAttribute('data-period')) - 1;
+    input.value = schedule[period] || "";
+  });
+};
+
+const loadDetailScheduleDataToInputs = () => {
+  const schedule = dailySchedules[selectedRecordDate] || ["", "", "", "", "", ""];
+  const inputs = document.querySelectorAll('.records-schedule-input');
+  inputs.forEach(input => {
+    const period = parseInt(input.getAttribute('data-period')) - 1;
+    input.value = schedule[period] || "";
+  });
+};
+
+const saveScheduleFromInputs = () => {
+  const inputs = document.querySelectorAll('.schedule-input');
+  const schedule = [];
+  let hasValue = false;
+  inputs.forEach(input => {
+    const val = input.value.trim();
+    schedule.push(val);
+    if (val) hasValue = true;
+  });
+  
+  if (hasValue) {
+    dailySchedules[currentAnnouncementDate] = schedule;
+  } else {
+    delete dailySchedules[currentAnnouncementDate];
+  }
+  saveData();
+};
+
+const saveDetailScheduleFromInputs = () => {
+  const inputs = document.querySelectorAll('.records-schedule-input');
+  const schedule = [];
+  let hasValue = false;
+  inputs.forEach(input => {
+    const val = input.value.trim();
+    schedule.push(val);
+    if (val) hasValue = true;
+  });
+  
+  if (hasValue) {
+    dailySchedules[selectedRecordDate] = schedule;
+  } else {
+    delete dailySchedules[selectedRecordDate];
+  }
+  
+  // 만약 현재 수정 중인 날짜가 오늘이라면 메인 화면 일정 버퍼에도 반영
+  const todayStr = getTodayDateString();
+  if (selectedRecordDate === todayStr) {
+    loadScheduleDataToInputs();
+  }
+  
+  saveData();
+};
+
+const toggleAnnouncementMode = () => {
+  const contentEl = document.getElementById('announcement-content');
+  const scheduleContainer = document.getElementById('schedule-editor-container');
+  const btn = document.getElementById('btn-toggle-schedule');
+  if (!scheduleContainer || !contentEl || !btn) return;
+  
+  if (scheduleContainer.classList.contains('hidden')) {
+    scheduleContainer.classList.remove('hidden');
+    contentEl.classList.add('hidden');
+    btn.innerText = '📢 알림장 보기';
+    loadScheduleDataToInputs();
+  } else {
+    scheduleContainer.classList.add('hidden');
+    contentEl.classList.remove('hidden');
+    btn.innerText = '📅 일정 보기';
+  }
+};
+
+const toggleRecordsAnnouncementMode = () => {
+  const contentEl = document.getElementById('records-detail-announcement-content');
+  const scheduleContainer = document.getElementById('records-schedule-editor-container');
+  const btn = document.getElementById('btn-toggle-records-schedule');
+  if (!scheduleContainer || !contentEl || !btn) return;
+  
+  if (scheduleContainer.classList.contains('hidden')) {
+    scheduleContainer.classList.remove('hidden');
+    contentEl.classList.add('hidden');
+    btn.innerText = '📢 알림장 보기';
+    loadDetailScheduleDataToInputs();
+  } else {
+    scheduleContainer.classList.add('hidden');
+    contentEl.classList.remove('hidden');
+    btn.innerText = '📅 일정 보기';
+  }
+};
+
+const initScheduleEditor = () => {
+  const inputs = document.querySelectorAll('.schedule-input');
+  inputs.forEach(input => {
+    input.addEventListener('blur', () => {
+      saveScheduleFromInputs();
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        saveScheduleFromInputs();
+        e.target.blur();
+      }
+    });
+  });
+  
+  const detailInputs = document.querySelectorAll('.records-schedule-input');
+  detailInputs.forEach(input => {
+    input.addEventListener('blur', () => {
+      saveDetailScheduleFromInputs();
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        saveDetailScheduleFromInputs();
+        e.target.blur();
+      }
+    });
+  });
+};
+
+window.toggleAnnouncementMode = toggleAnnouncementMode;
+window.toggleRecordsAnnouncementMode = toggleRecordsAnnouncementMode;
 // @TEACHER_ONLY_END
+
+const updatePortalScheduleView = () => {
+  const schedule = dailySchedules[currentPortalAnnouncementDate] || ["", "", "", "", "", ""];
+  for (let i = 1; i <= 6; i++) {
+    const el = document.getElementById(`portal-schedule-p${i}`);
+    if (el) {
+      el.innerText = schedule[i - 1] || "-";
+    }
+  }
+};
+
+const togglePortalAnnouncementMode = () => {
+  const contentEl = document.getElementById('portal-announcement-content');
+  const scheduleContainer = document.getElementById('portal-schedule-container');
+  const btn = document.getElementById('portal-btn-toggle-schedule');
+  if (!scheduleContainer || !contentEl || !btn) return;
+  
+  if (scheduleContainer.classList.contains('hidden')) {
+    scheduleContainer.classList.remove('hidden');
+    contentEl.classList.add('hidden');
+    btn.innerText = '📢 알림장 보기';
+    updatePortalScheduleView();
+  } else {
+    scheduleContainer.classList.add('hidden');
+    contentEl.classList.remove('hidden');
+    btn.innerText = '📅 일정 보기';
+  }
+};
+
+window.togglePortalAnnouncementMode = togglePortalAnnouncementMode;
 
 // 알림장 날짜 변경 이벤트 핸들러 (이벤트 위임)
 document.addEventListener('change', (e) => {
@@ -6265,6 +6449,9 @@ document.addEventListener('change', (e) => {
     if (contentEl) {
       contentEl.innerText = dailyAnnouncements[currentAnnouncementDate] || "";
     }
+    if (typeof loadScheduleDataToInputs === 'function') {
+      loadScheduleDataToInputs();
+    }
   }
   
   if (e.target && e.target.id === 'portal-announcement-date-input') {
@@ -6275,6 +6462,7 @@ document.addEventListener('change', (e) => {
     if (contentEl) {
       contentEl.innerText = dailyAnnouncements[currentPortalAnnouncementDate] || "알림장이 없습니다.";
     }
+    updatePortalScheduleView();
   }
 });
 
@@ -6304,6 +6492,7 @@ window.onload = () => {
   initDailyRecordsTab();
   initAnnouncementEditor();
   initDetailAnnouncementEditor();
+  initScheduleEditor();
 // @TEACHER_ONLY_END
   
 // @TEACHER_ONLY_START
