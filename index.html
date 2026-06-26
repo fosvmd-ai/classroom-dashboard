@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Outfit:wght@300;400;500;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=1.0.10">
+  <link rel="stylesheet" href="style.css?v=1.0.11">
   <!-- Google Identity Services (GIS) SDK -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- Firebase JS SDK - async 병렬 로드 + 차단 감지 -->
@@ -197,30 +197,30 @@
           </div>
           <div class="widget-body" style="cursor: text;">
             <p id="announcement-content" contenteditable="true" style="outline: none; width: 100%; min-height: 120px; margin: 0;">로딩 중...</p>
-            <div id="schedule-editor-container" class="hidden" style="display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 10px;">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-weight: bold; width: 45px; text-align: right; color: var(--text-color); font-size: 13px;">1교시:</span>
-                <input type="text" class="schedule-input" data-period="1" placeholder="수업 입력" style="flex: 1; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; font-family: inherit; font-size: 13px; outline: none; background: white; color: var(--text-color);">
+            <div id="schedule-editor-container" class="hidden" style="display: flex; flex-direction: column; gap: 12px; width: 100%; margin-top: 15px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-weight: bold; width: 68px; text-align: right; color: var(--text-color); font-size: 20px;">1교시:</span>
+                <input type="text" class="schedule-input" data-period="1" placeholder="수업 입력" style="flex: 1; padding: 10px 14px; border: 2px solid var(--border-color); border-radius: 10px; font-family: inherit; font-size: 26px; font-weight: 800; outline: none; background: white; color: var(--text-color); height: auto;">
               </div>
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-weight: bold; width: 45px; text-align: right; color: var(--text-color); font-size: 13px;">2교시:</span>
-                <input type="text" class="schedule-input" data-period="2" placeholder="수업 입력" style="flex: 1; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; font-family: inherit; font-size: 13px; outline: none; background: white; color: var(--text-color);">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-weight: bold; width: 68px; text-align: right; color: var(--text-color); font-size: 20px;">2교시:</span>
+                <input type="text" class="schedule-input" data-period="2" placeholder="수업 입력" style="flex: 1; padding: 10px 14px; border: 2px solid var(--border-color); border-radius: 10px; font-family: inherit; font-size: 26px; font-weight: 800; outline: none; background: white; color: var(--text-color); height: auto;">
               </div>
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-weight: bold; width: 45px; text-align: right; color: var(--text-color); font-size: 13px;">3교시:</span>
-                <input type="text" class="schedule-input" data-period="3" placeholder="수업 입력" style="flex: 1; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; font-family: inherit; font-size: 13px; outline: none; background: white; color: var(--text-color);">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-weight: bold; width: 68px; text-align: right; color: var(--text-color); font-size: 20px;">3교시:</span>
+                <input type="text" class="schedule-input" data-period="3" placeholder="수업 입력" style="flex: 1; padding: 10px 14px; border: 2px solid var(--border-color); border-radius: 10px; font-family: inherit; font-size: 26px; font-weight: 800; outline: none; background: white; color: var(--text-color); height: auto;">
               </div>
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-weight: bold; width: 45px; text-align: right; color: var(--text-color); font-size: 13px;">4교시:</span>
-                <input type="text" class="schedule-input" data-period="4" placeholder="수업 입력" style="flex: 1; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; font-family: inherit; font-size: 13px; outline: none; background: white; color: var(--text-color);">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-weight: bold; width: 68px; text-align: right; color: var(--text-color); font-size: 20px;">4교시:</span>
+                <input type="text" class="schedule-input" data-period="4" placeholder="수업 입력" style="flex: 1; padding: 10px 14px; border: 2px solid var(--border-color); border-radius: 10px; font-family: inherit; font-size: 26px; font-weight: 800; outline: none; background: white; color: var(--text-color); height: auto;">
               </div>
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-weight: bold; width: 45px; text-align: right; color: var(--text-color); font-size: 13px;">5교시:</span>
-                <input type="text" class="schedule-input" data-period="5" placeholder="수업 입력" style="flex: 1; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; font-family: inherit; font-size: 13px; outline: none; background: white; color: var(--text-color);">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-weight: bold; width: 68px; text-align: right; color: var(--text-color); font-size: 20px;">5교시:</span>
+                <input type="text" class="schedule-input" data-period="5" placeholder="수업 입력" style="flex: 1; padding: 10px 14px; border: 2px solid var(--border-color); border-radius: 10px; font-family: inherit; font-size: 26px; font-weight: 800; outline: none; background: white; color: var(--text-color); height: auto;">
               </div>
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-weight: bold; width: 45px; text-align: right; color: var(--text-color); font-size: 13px;">6교시:</span>
-                <input type="text" class="schedule-input" data-period="6" placeholder="수업 입력" style="flex: 1; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; font-family: inherit; font-size: 13px; outline: none; background: white; color: var(--text-color);">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-weight: bold; width: 68px; text-align: right; color: var(--text-color); font-size: 20px;">6교시:</span>
+                <input type="text" class="schedule-input" data-period="6" placeholder="수업 입력" style="flex: 1; padding: 10px 14px; border: 2px solid var(--border-color); border-radius: 10px; font-family: inherit; font-size: 26px; font-weight: 800; outline: none; background: white; color: var(--text-color); height: auto;">
               </div>
             </div>
           </div>
@@ -315,30 +315,30 @@
             </div>
           </h3>
           <p id="records-detail-announcement-content" contenteditable="true" style="outline: none; font-size: 20px; line-height: 1.6; color: #713f12; white-space: pre-wrap; font-weight: bold; margin: 0; min-height: 40px; padding: 6px 10px; text-align: left; width: 100%;">알림장이 없습니다.</p>
-          <div id="records-schedule-editor-container" class="hidden" style="display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 10px;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-weight: bold; width: 45px; text-align: right; color: #713f12; font-size: 13px;">1교시:</span>
-              <input type="text" class="records-schedule-input" data-period="1" placeholder="수업 입력" style="flex: 1; padding: 6px 10px; border: 1px solid #fde047; border-radius: 6px; font-family: inherit; font-size: 13px; outline: none; background: white; color: #713f12;">
+          <div id="records-schedule-editor-container" class="hidden" style="display: flex; flex-direction: column; gap: 12px; width: 100%; margin-top: 15px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-weight: bold; width: 68px; text-align: right; color: #713f12; font-size: 20px;">1교시:</span>
+              <input type="text" class="records-schedule-input" data-period="1" placeholder="수업 입력" style="flex: 1; padding: 10px 14px; border: 2px solid #fde047; border-radius: 10px; font-family: inherit; font-size: 26px; font-weight: 800; outline: none; background: white; color: #713f12; height: auto;">
             </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-weight: bold; width: 45px; text-align: right; color: #713f12; font-size: 13px;">2교시:</span>
-              <input type="text" class="records-schedule-input" data-period="2" placeholder="수업 입력" style="flex: 1; padding: 6px 10px; border: 1px solid #fde047; border-radius: 6px; font-family: inherit; font-size: 13px; outline: none; background: white; color: #713f12;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-weight: bold; width: 68px; text-align: right; color: #713f12; font-size: 20px;">2교시:</span>
+              <input type="text" class="records-schedule-input" data-period="2" placeholder="수업 입력" style="flex: 1; padding: 10px 14px; border: 2px solid #fde047; border-radius: 10px; font-family: inherit; font-size: 26px; font-weight: 800; outline: none; background: white; color: #713f12; height: auto;">
             </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-weight: bold; width: 45px; text-align: right; color: #713f12; font-size: 13px;">3교시:</span>
-              <input type="text" class="records-schedule-input" data-period="3" placeholder="수업 입력" style="flex: 1; padding: 6px 10px; border: 1px solid #fde047; border-radius: 6px; font-family: inherit; font-size: 13px; outline: none; background: white; color: #713f12;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-weight: bold; width: 68px; text-align: right; color: #713f12; font-size: 20px;">3교시:</span>
+              <input type="text" class="records-schedule-input" data-period="3" placeholder="수업 입력" style="flex: 1; padding: 10px 14px; border: 2px solid #fde047; border-radius: 10px; font-family: inherit; font-size: 26px; font-weight: 800; outline: none; background: white; color: #713f12; height: auto;">
             </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-weight: bold; width: 45px; text-align: right; color: #713f12; font-size: 13px;">4교시:</span>
-              <input type="text" class="records-schedule-input" data-period="4" placeholder="수업 입력" style="flex: 1; padding: 6px 10px; border: 1px solid #fde047; border-radius: 6px; font-family: inherit; font-size: 13px; outline: none; background: white; color: #713f12;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-weight: bold; width: 68px; text-align: right; color: #713f12; font-size: 20px;">4교시:</span>
+              <input type="text" class="records-schedule-input" data-period="4" placeholder="수업 입력" style="flex: 1; padding: 10px 14px; border: 2px solid #fde047; border-radius: 10px; font-family: inherit; font-size: 26px; font-weight: 800; outline: none; background: white; color: #713f12; height: auto;">
             </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-weight: bold; width: 45px; text-align: right; color: #713f12; font-size: 13px;">5교시:</span>
-              <input type="text" class="records-schedule-input" data-period="5" placeholder="수업 입력" style="flex: 1; padding: 6px 10px; border: 1px solid #fde047; border-radius: 6px; font-family: inherit; font-size: 13px; outline: none; background: white; color: #713f12;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-weight: bold; width: 68px; text-align: right; color: #713f12; font-size: 20px;">5교시:</span>
+              <input type="text" class="records-schedule-input" data-period="5" placeholder="수업 입력" style="flex: 1; padding: 10px 14px; border: 2px solid #fde047; border-radius: 10px; font-family: inherit; font-size: 26px; font-weight: 800; outline: none; background: white; color: #713f12; height: auto;">
             </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-weight: bold; width: 45px; text-align: right; color: #713f12; font-size: 13px;">6교시:</span>
-              <input type="text" class="records-schedule-input" data-period="6" placeholder="수업 입력" style="flex: 1; padding: 6px 10px; border: 1px solid #fde047; border-radius: 6px; font-family: inherit; font-size: 13px; outline: none; background: white; color: #713f12;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-weight: bold; width: 68px; text-align: right; color: #713f12; font-size: 20px;">6교시:</span>
+              <input type="text" class="records-schedule-input" data-period="6" placeholder="수업 입력" style="flex: 1; padding: 10px 14px; border: 2px solid #fde047; border-radius: 10px; font-family: inherit; font-size: 26px; font-weight: 800; outline: none; background: white; color: #713f12; height: auto;">
             </div>
           </div>
         </div>
@@ -1214,7 +1214,7 @@
       var loadTeacherScript = isElectron || hash.startsWith('#teacher') || isTeacherPending || (isTeacherLoggedIn && !isStudentPath);
       
       window.__loadedScriptType = loadTeacherScript ? 'teacher' : 'student';
-      var scriptSrc = loadTeacherScript ? 'app.js?v=1.0.30' : 'student.js?v=1.0.30';
+      var scriptSrc = loadTeacherScript ? 'app.js?v=1.0.31' : 'student.js?v=1.0.31';
 
       console.log('[Dashboard] 로드할 스크립트 타입:', window.__loadedScriptType, '->', scriptSrc);
 
