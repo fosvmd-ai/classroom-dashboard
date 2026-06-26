@@ -3075,21 +3075,32 @@ const updatePortalScheduleView = () => {
   }
 };
 
-const togglePortalAnnouncementMode = () => {
+const togglePortalAnnouncementMode = (targetMode) => {
   const contentEl = document.getElementById('portal-announcement-content');
   const scheduleContainer = document.getElementById('portal-schedule-container');
-  const btn = document.getElementById('portal-btn-toggle-schedule');
-  if (!scheduleContainer || !contentEl || !btn) return;
+  const btnAnn = document.getElementById('portal-btn-toggle-ann');
+  const btnSch = document.getElementById('portal-btn-toggle-sch');
+  if (!scheduleContainer || !contentEl || !btnAnn || !btnSch) return;
   
-  if (scheduleContainer.classList.contains('hidden')) {
+  if (targetMode === 'schedule') {
     scheduleContainer.classList.remove('hidden');
     contentEl.classList.add('hidden');
-    btn.innerText = '📢 알림장 보기';
+    btnSch.style.background = '#ffffff';
+    btnSch.style.color = '#713f12';
+    btnSch.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)';
+    btnAnn.style.background = 'transparent';
+    btnAnn.style.color = '#a16207';
+    btnAnn.style.boxShadow = 'none';
     updatePortalScheduleView();
   } else {
     scheduleContainer.classList.add('hidden');
     contentEl.classList.remove('hidden');
-    btn.innerText = '📅 일정 보기';
+    btnAnn.style.background = '#ffffff';
+    btnAnn.style.color = '#713f12';
+    btnAnn.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)';
+    btnSch.style.background = 'transparent';
+    btnSch.style.color = '#a16207';
+    btnSch.style.boxShadow = 'none';
   }
 };
 

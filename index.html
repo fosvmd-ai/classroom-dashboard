@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Outfit:wght@300;400;500;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=1.0.8">
+  <link rel="stylesheet" href="style.css?v=1.0.9">
   <!-- Google Identity Services (GIS) SDK -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- Firebase JS SDK - async 병렬 로드 + 차단 감지 -->
@@ -185,7 +185,10 @@
           <div class="widget-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; width: 100%;">
             <h3 style="margin: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 6px;">
               <span>📢 오늘의 알림장</span>
-              <button id="btn-toggle-schedule" onclick="toggleAnnouncementMode()" style="padding: 4px 8px; font-size: 11px; font-weight: bold; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer; background: white; color: var(--text-color); margin-left: 6px; line-height: 1.2;">📅 일정 보기</button>
+              <div style="display: flex; align-items: center; gap: 4px; background: #e2e8f0; padding: 2px; border-radius: 6px; border: 1px solid #cbd5e1; height: 32px; margin-left: 6px;">
+                <button id="btn-toggle-announcement-mode-ann" onclick="toggleAnnouncementMode('announcement')" style="padding: 0 10px; font-size: 12px; font-weight: bold; border-radius: 4px; border: none; cursor: pointer; background: #ffffff; color: var(--text-main); box-shadow: 0 1px 2px rgba(0,0,0,0.05); height: 100%; display: inline-flex; align-items: center; justify-content: center; line-height: 1.2;">📢 알림장</button>
+                <button id="btn-toggle-announcement-mode-sch" onclick="toggleAnnouncementMode('schedule')" style="padding: 0 10px; font-size: 12px; font-weight: bold; border-radius: 4px; border: none; cursor: pointer; background: transparent; color: var(--text-muted); height: 100%; display: inline-flex; align-items: center; justify-content: center; line-height: 1.2;">📅 일정</button>
+              </div>
             </h3>
             <div style="display: flex; align-items: center; gap: 8px; margin-left: auto;">
               <span id="announcement-date-display" style="font-size: 18px; font-weight: 800; color: var(--text-color); margin-right: 4px;"></span>
@@ -306,7 +309,10 @@
         <div class="portal-card announcement-card" style="margin-bottom: 20px; background: #fffdf0; border-color: #fde047; padding: 8px 12px; border-radius: 12px; border: 1px solid #fde047; box-shadow: none;">
           <h3 style="color: #713f12; margin-top: 0; margin-bottom: 8px; font-size: 15px; border-bottom: 1px solid #fef08a; padding-bottom: 6px; display: flex; align-items: center; justify-content: space-between; border-top: none; padding-top: 0;">
             <span>📢 이 날짜의 알림장 <span style="font-size:11px; color:var(--text-muted); font-weight:normal; margin-left:6px;">(클릭 시 즉시 편집 가능)</span></span>
-            <button id="btn-toggle-records-schedule" onclick="toggleRecordsAnnouncementMode()" style="padding: 3px 8px; font-size: 11px; font-weight: bold; border-radius: 6px; border: 1px solid #fde047; cursor: pointer; background: #fffdf0; color: #713f12; margin-left: 6px; line-height: 1.2;">📅 일정 보기</button>
+            <div style="display: flex; align-items: center; gap: 4px; background: #fef08a; padding: 2px; border-radius: 6px; border: 1px solid #fde047; height: 32px; margin-left: 8px;">
+              <button id="btn-toggle-records-ann" onclick="toggleRecordsAnnouncementMode('announcement')" style="padding: 0 10px; font-size: 12px; font-weight: bold; border-radius: 4px; border: none; cursor: pointer; background: #ffffff; color: #713f12; box-shadow: 0 1px 2px rgba(0,0,0,0.05); height: 100%; display: inline-flex; align-items: center; justify-content: center; line-height: 1.2;">📢 알림장</button>
+              <button id="btn-toggle-records-sch" onclick="toggleRecordsAnnouncementMode('schedule')" style="padding: 0 10px; font-size: 12px; font-weight: bold; border-radius: 4px; border: none; cursor: pointer; background: transparent; color: #a16207; height: 100%; display: inline-flex; align-items: center; justify-content: center; line-height: 1.2;">📅 일정</button>
+            </div>
           </h3>
           <p id="records-detail-announcement-content" contenteditable="true" style="outline: none; font-size: 20px; line-height: 1.6; color: #713f12; white-space: pre-wrap; font-weight: bold; margin: 0; min-height: 40px; padding: 6px 10px; text-align: left; width: 100%;">알림장이 없습니다.</p>
           <div id="records-schedule-editor-container" class="hidden" style="display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 10px;">
@@ -864,7 +870,10 @@
         <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #fef08a; padding-bottom: 8px; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; width: 100%;">
           <h3 style="color: #713f12; margin: 0; border: none; padding: 0; display: flex; align-items: center; gap: 8px;">
             <span>📢 오늘의 알림장</span>
-            <button id="portal-btn-toggle-schedule" onclick="togglePortalAnnouncementMode()" style="padding: 3px 8px; font-size: 11px; font-weight: bold; border-radius: 6px; border: 1px solid #fde047; cursor: pointer; background: #fffdf0; color: #713f12; line-height: 1.2;">📅 일정 보기</button>
+            <div style="display: flex; align-items: center; gap: 4px; background: #fef08a; padding: 2px; border-radius: 6px; border: 1px solid #fde047; height: 32px;">
+              <button id="portal-btn-toggle-ann" onclick="togglePortalAnnouncementMode('announcement')" style="padding: 0 10px; font-size: 12px; font-weight: bold; border-radius: 4px; border: none; cursor: pointer; background: #ffffff; color: #713f12; box-shadow: 0 1px 2px rgba(0,0,0,0.05); height: 100%; display: inline-flex; align-items: center; justify-content: center; line-height: 1.2;">📢 알림장</button>
+              <button id="portal-btn-toggle-sch" onclick="togglePortalAnnouncementMode('schedule')" style="padding: 0 10px; font-size: 12px; font-weight: bold; border-radius: 4px; border: none; cursor: pointer; background: transparent; color: #a16207; height: 100%; display: inline-flex; align-items: center; justify-content: center; line-height: 1.2;">📅 일정</button>
+            </div>
           </h3>
           <div style="display: flex; align-items: center; gap: 8px; margin-left: auto;">
             <span id="portal-announcement-date-display" style="font-size: 20px; font-weight: 800; color: #713f12; margin-right: 4px;"></span>
@@ -1205,7 +1214,7 @@
       var loadTeacherScript = isElectron || hash.startsWith('#teacher') || isTeacherPending || (isTeacherLoggedIn && !isStudentPath);
       
       window.__loadedScriptType = loadTeacherScript ? 'teacher' : 'student';
-      var scriptSrc = loadTeacherScript ? 'app.js?v=1.0.28' : 'student.js?v=1.0.28';
+      var scriptSrc = loadTeacherScript ? 'app.js?v=1.0.29' : 'student.js?v=1.0.29';
 
       console.log('[Dashboard] 로드할 스크립트 타입:', window.__loadedScriptType, '->', scriptSrc);
 
