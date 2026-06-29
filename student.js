@@ -65,10 +65,10 @@ const formatKoreanDate = (dateStr) => {
 };
 
 // 기본 데이터 로드
-let students = JSON.parse(localStorage.getItem('students')) || DEFAULT_STUDENTS;
-let grades = JSON.parse(localStorage.getItem('grades')) || DEFAULT_GRADES;
+let students = (Array.isArray(JSON.parse(localStorage.getItem('students'))) ? JSON.parse(localStorage.getItem('students')) : DEFAULT_STUDENTS).filter(Boolean);
+let grades = (Array.isArray(JSON.parse(localStorage.getItem('grades'))) ? JSON.parse(localStorage.getItem('grades')) : DEFAULT_GRADES).filter(Boolean);
 let dailyLogs = JSON.parse(localStorage.getItem('dailyLogs')) || {};
-let pointHistory = JSON.parse(localStorage.getItem('pointHistory')) || [];
+let pointHistory = (Array.isArray(JSON.parse(localStorage.getItem('pointHistory'))) ? JSON.parse(localStorage.getItem('pointHistory')) : []).filter(Boolean);
 let config = JSON.parse(localStorage.getItem('config')) || {
   today_announcement: "금요일 수학 3단원 단원평가 준비물(자, 연필, 지우개) 챙기기!\n주제 글쓰기 주제는 '내가 좋아하는 계절'입니다.",
   student_passcode: ""
@@ -97,7 +97,7 @@ if (Object.keys(dailyAnnouncements).length === 0 && config.today_announcement) {
 let dailyAssignments = JSON.parse(localStorage.getItem('dailyAssignments')) || {};
 let pendingRequests = JSON.parse(localStorage.getItem('pendingRequests')) || {};
 let absentLogs = JSON.parse(localStorage.getItem('absentLogs')) || {};
-let processedDeductionDates = JSON.parse(localStorage.getItem('processedDeductionDates')) || [];
+let processedDeductionDates = (Array.isArray(JSON.parse(localStorage.getItem('processedDeductionDates'))) ? JSON.parse(localStorage.getItem('processedDeductionDates')) : []).filter(Boolean);
 let dailyBackups = JSON.parse(localStorage.getItem('dailyBackups')) || {};
 let teacherPasscode = localStorage.getItem('teacherPasscode') || '1234';
 let googleClientId = localStorage.getItem('googleClientId') || '1010660265980-1dj6r5h1f3ls8ln0bmjrf5u3s9qjcekg.apps.googleusercontent.com';
@@ -638,16 +638,16 @@ const applyRemoteData = (data) => {
   const syncBanner = document.getElementById('portal-sync-banner');
   if (syncBanner) syncBanner.remove();
   
-  // 데이터 덮어쓰기
-  students = data.students || students;
-  grades = data.grades || grades;
+  // 데이터 덮어쓰기 및 null/undefined 방어 필터 적용
+  students = Array.isArray(data.students) ? data.students.filter(Boolean) : (students || []).filter(Boolean);
+  grades = Array.isArray(data.grades) ? data.grades.filter(Boolean) : (grades || []).filter(Boolean);
   dailyLogs = data.dailyLogs || dailyLogs;
-  pointHistory = data.pointHistory || pointHistory;
+  pointHistory = Array.isArray(data.pointHistory) ? data.pointHistory.filter(Boolean) : (pointHistory || []).filter(Boolean);
   config = data.config || config;
   dailyAssignments = data.dailyAssignments || dailyAssignments;
   pendingRequests = data.pendingRequests || {};
   absentLogs = data.absentLogs || {};
-  processedDeductionDates = data.processedDeductionDates || [];
+  processedDeductionDates = Array.isArray(data.processedDeductionDates) ? data.processedDeductionDates.filter(Boolean) : (processedDeductionDates || []).filter(Boolean);
   teacherPasscode = data.teacherPasscode || '1234';
   dailyAnnouncements = data.dailyAnnouncements || dailyAnnouncements;
   dailySchedules = data.dailySchedules || dailySchedules;
