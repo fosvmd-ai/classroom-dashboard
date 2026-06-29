@@ -217,6 +217,11 @@ const saveData = (skipFirebase = false) => {
 
   // 파이어베이스 동기화 모드
   if (currentSyncMode === 'firebase' && dbRef) {
+    // 보안 및 권한 설정: 교사로 로그인/인증된 브라우저가 아닐 경우 전체 동기화 차단
+    if (!isTeacherAuthenticated()) {
+      console.log("[Sync Security] 비인증 기기 및 학생 포털의 전체 원격 저장 차단");
+      return;
+    }
     // 동시성 개선: set 대신 update를 사용하고 pendingRequests는 학생 개별 업로드로만 제어하여 덮어쓰기 방지
     dbRef.update({
       students,
@@ -548,6 +553,71 @@ const updateSyncStatusUI = () => {
   }
 };
 
+// 데이터베이스 중복 데이터 및 포인트 복구 클리닝 작업 (일회성)
+const cleanDatabaseDuplicates = () => {
+  if (config.db_cleaned_v1 === true) return;
+  if (!isTeacherAuthenticated()) return;
+
+  console.log("[CleanDB] Starting database duplicate check...");
+
+  const uniqueHistory = [];
+  const seenKeys = new Set();
+  const pointsToRestore = {};
+  let removedCount = 0;
+
+  pointHistory.forEach(log => {
+    if (log.is_auto_deduction && log.student_id && log.assignment_date && log.task_id && log.timestamp) {
+      const key = `${log.student_id}_${log.assignment_date}_${log.task_id}_${log.timestamp}_${log.points_changed}`;
+      if (seenKeys.has(key)) {
+        removedCount++;
+        if (log.points_changed === -1) {
+          pointsToRestore[log.student_id] = (pointsToRestore[log.student_id] || 0) + 1;
+        }
+      } else {
+        seenKeys.add(key);
+        uniqueHistory.push(log);
+      }
+    } else {
+      uniqueHistory.push(log);
+    }
+  });
+
+  if (removedCount > 0) {
+    console.log(`[CleanDB] Found and removed ${removedCount} duplicate pointHistory entries.`);
+    
+    students.forEach(student => {
+      const restore = pointsToRestore[student.student_id] || 0;
+      if (restore > 0) {
+        const oldPoints = student.total_points || 0;
+        student.total_points = oldPoints + restore;
+        console.log(`[CleanDB] Restored ${restore} points to student ${student.name} (${student.student_id}): ${oldPoints} -> ${student.total_points}`);
+      }
+    });
+
+    pointHistory = uniqueHistory;
+    config.db_cleaned_v1 = true;
+
+    if (currentSyncMode === 'firebase' && dbRef) {
+      dbRef.update({
+        pointHistory,
+        students,
+        config
+      }).then(() => {
+        console.log("[CleanDB] Firebase update successful.");
+        saveData(true);
+      }).catch(err => {
+        console.error("[CleanDB] Firebase update failed:", err);
+      });
+    } else {
+      saveData();
+    }
+  } else {
+    console.log("[CleanDB] No duplicates found.");
+    config.db_cleaned_v1 = true;
+    saveData();
+  }
+};
+
 // 원격 데이터 수신 및 로컬 상태 적용
 const applyRemoteData = (data) => {
   if (!data) return;
@@ -589,6 +659,11 @@ const applyRemoteData = (data) => {
   localStorage.setItem('dailySchedules', JSON.stringify(dailySchedules));
   
   isSyncingFromRemote = false;
+  
+  // 데이터베이스 중복 데이터 및 포인트 복구 클리닝 작업 실행 (교사인 경우에만)
+  if (isTeacherAuthenticated() && config.db_cleaned_v1 !== true) {
+    cleanDatabaseDuplicates();
+  }
   
   // 미제출 감점 처리 재평가 (혹시 누락된 날이 있다면 자동 처리)
   processAutoDeductions();
@@ -2538,8 +2613,35 @@ const checkStudentAttendance = (studentId) => {
   // 2. 주간 완수 보너스 검증 실행
   const gotBonus = checkWeeklyBonus(student, todayStr);
 
-  // 저장 및 포털 화면 새로고침
-  saveData();
+  // 파이어베이스 동기화 모드 시 개별 경로 원자적 갱신으로 동시성 보장
+  if (currentSyncMode === 'firebase' && dbRef) {
+    const studentIdx = students.findIndex(s => s.student_id === studentId);
+    if (studentIdx !== -1) {
+      const updates = {};
+      updates[`students/${studentIdx}/attendance/${todayStr}`] = true;
+      if (gotBonus) {
+        const weekId = getWeekdaysOfCurrentWeek(todayStr)[0];
+        updates[`students/${studentIdx}/weekly_bonus/${weekId}`] = true;
+        updates[`students/${studentIdx}/total_points`] = student.total_points;
+        
+        const newLogIdx = pointHistory.length - 1;
+        updates[`pointHistory/${newLogIdx}`] = pointHistory[newLogIdx];
+      }
+      
+      dbRef.update(updates)
+        .then(() => {
+          saveData(true);
+        })
+        .catch(err => {
+          console.error("[Firebase] 출석 체크 업로드 실패:", err);
+          alert("⚠️ [출석체크 전송 실패] 인터넷 연결 상태나 데이터베이스 권한을 확인해주세요.");
+        });
+    } else {
+      saveData();
+    }
+  } else {
+    saveData();
+  }
   
   if (gotBonus) {
     playAudioEffect('coin');
