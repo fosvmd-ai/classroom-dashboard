@@ -367,6 +367,11 @@ body {
 }
 .students-grid.cols-4 .large-task-emoji {
   font-size: 34px !important;
+  margin-top: 10px !important;
+}
+.students-grid.cols-4 .task-short-label {
+  top: 5px !important;
+  font-size: 11px !important;
 }
 
 /* 한 줄에 5명 배치 시: 카드 및 버튼 확대 */
@@ -387,6 +392,11 @@ body {
 }
 .students-grid.cols-5 .large-task-emoji {
   font-size: 30px !important;
+  margin-top: 8px !important;
+}
+.students-grid.cols-5 .task-short-label {
+  top: 4px !important;
+  font-size: 9.5px !important;
 }
 
 /* 한 줄에 6명 배치 시 */
@@ -406,6 +416,11 @@ body {
 }
 .students-grid.cols-6 .large-task-emoji {
   font-size: 27px !important;
+  margin-top: 8px !important;
+}
+.students-grid.cols-6 .task-short-label {
+  top: 3.5px !important;
+  font-size: 9px !important;
 }
 
 /* 한 줄에 8명 배치 시: 초소형 밀집 모드 */
@@ -426,6 +441,12 @@ body {
 }
 .students-grid.cols-8 .large-task-emoji {
   font-size: 22px !important;
+  margin-top: 5px !important;
+}
+.students-grid.cols-8 .task-short-label {
+  top: 1.5px !important;
+  font-size: 7.5px !important;
+  letter-spacing: -0.6px !important;
 }
 
 .student-card {
@@ -1878,6 +1899,22 @@ button.btn-danger:hover {
   font-size: 26px;
   line-height: 1;
   transition: all 0.25s ease;
+  margin-top: 6px;
+}
+
+.task-short-label {
+  position: absolute;
+  top: 3px;
+  font-size: 8.5px;
+  font-weight: 800;
+  color: #64748b;
+  line-height: 1;
+  letter-spacing: -0.3px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.large-task-icon-wrapper.completed .task-short-label {
+  color: #047857;
 }
 
 /* 완료되지 않은 과제: 이모지 반투명 및 회색조 */
@@ -2313,6 +2350,13 @@ button.btn-danger:hover {
 
 .dark-theme .large-task-icon-wrapper:not(.completed):hover {
   border-color: #475569 !important;
+}
+
+.dark-theme .task-short-label {
+  color: #94a3b8 !important;
+}
+.dark-theme .large-task-icon-wrapper.completed .task-short-label {
+  color: #34d399 !important;
 }
 
 .dark-theme .app-header.combined-header {

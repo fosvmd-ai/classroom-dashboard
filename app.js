@@ -1963,6 +1963,12 @@ const processAutoDeductions = () => {
   }
   const todayStr = getTodayDateString();
   
+  // 주말(토요일, 일요일)에는 자동 감점 처리를 실행하지 않음
+  const todayDay = parseLocalDate(todayStr).getDay();
+  if (todayDay === 0 || todayDay === 6) { // 0: 일요일, 6: 토요일
+    return;
+  }
+  
   const assignmentDates = Object.keys(dailyAssignments).sort();
   if (assignmentDates.length === 0) return;
   
@@ -2157,10 +2163,17 @@ const renderTeacherDashboard = () => {
           if (!completed) allComplete = false;
           
           const emoji = getTaskEmoji(task.name);
+          let cleanName = task.name;
+          if (cleanName.startsWith(emoji)) {
+            cleanName = cleanName.replace(emoji, '').trim();
+          }
+          const shortName = cleanName.substring(0, 2);
+          
           tasksHtml += `
             <div class="large-task-icon-wrapper ${completed ? 'completed' : ''}" 
                  onclick="toggleSingleTaskFromCard(event, '${student.student_id}', '${task.id}', ${task.points}, '${task.name}')"
                  title="${task.name} (${task.points}점) - 클릭 시 즉시 토글">
+               <span class="task-short-label">${shortName}</span>
                <span class="large-task-emoji">${emoji}</span>
                <span class="task-status-dot ${completed ? 'completed' : ''}"></span>
             </div>
