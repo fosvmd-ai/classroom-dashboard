@@ -890,9 +890,11 @@ const initFirebaseSync = () => {
           photoURL: user.photoURL
         };
         localStorage.setItem('firebaseUser', JSON.stringify(firebaseUser));
+        localStorage.setItem('fb_teacher_uid', user.uid);
       } else {
         firebaseUser = null;
         localStorage.removeItem('firebaseUser');
+        localStorage.removeItem('fb_teacher_uid');
       }
       updateSyncStatusUI();
     });
@@ -966,6 +968,7 @@ const disconnectFirebase = () => {
   sessionStorage.removeItem('teacher_authenticated');
   localStorage.removeItem('firebaseConfig');
   localStorage.removeItem('firebaseUser');
+  localStorage.removeItem('fb_teacher_uid');
   localStorage.setItem('currentSyncMode', 'local');
   firebaseConfig = null;
   firebaseUser = null;
@@ -981,6 +984,16 @@ const loginWithFirebaseGoogle = async () => {
   }
   
   try {
+    let retries = 0;
+    while ((typeof firebase === 'undefined' || !firebase.auth) && retries < 30) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      retries++;
+    }
+    if (typeof firebase === 'undefined' || !firebase.auth) {
+      alert("❌ 파이어베이스 SDK 로딩 실패. 네트워크 연결을 확인하고 다시 시도해 주세요.");
+      return;
+    }
+
     if (firebase.apps.length === 0) {
       firebase.initializeApp(firebaseConfig);
     }
@@ -1003,6 +1016,7 @@ const loginWithFirebaseGoogle = async () => {
     localStorage.removeItem('dailySchedules');
     localStorage.removeItem('teacherPasscode');
     localStorage.removeItem('firebaseUser');
+    localStorage.removeItem('fb_teacher_uid');
 
     const provider = new firebase.auth.GoogleAuthProvider();
     // 로그인 시 항상 구글 계정 선택 창을 띄우도록 설정하여 다른 계정 전환 지원
@@ -1018,6 +1032,7 @@ const loginWithFirebaseGoogle = async () => {
         photoURL: user.photoURL
       };
       localStorage.setItem('firebaseUser', JSON.stringify(firebaseUser));
+      localStorage.setItem('fb_teacher_uid', user.uid);
       
       // 구글 로그인 성공 시 계정 고유 ID를 연동 키로 자동 할당
       firebaseConfig.classroomSyncKey = user.uid;
@@ -1060,11 +1075,13 @@ const logoutFirebaseGoogle = () => {
   // 동기화 모드를 로컬로 리셋
   localStorage.setItem('currentSyncMode', 'local');
   currentSyncMode = 'local';
+  localStorage.removeItem('fb_teacher_uid');
 
   if (firebase.apps.length > 0) {
     firebase.auth().signOut().then(() => {
       firebaseUser = null;
       localStorage.removeItem('firebaseUser');
+      localStorage.removeItem('fb_teacher_uid');
       alert("로그아웃 되었습니다.");
       location.reload();
     }).catch(err => {
