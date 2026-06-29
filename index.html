@@ -686,6 +686,22 @@
               <input type="file" id="import-data-file-input" onchange="importClassroomData(event)" accept=".json" style="display: none;">
             </div>
           </div>
+
+          <!-- Card 5: 🕒 일일 자동 백업 및 시점 복원 -->
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <h3>🕒 일일 자동 백업 및 시점 복원</h3>
+            </div>
+            <p class="settings-card-desc">매일 오후 3시 이후 대시보드 저장 시 자동으로 백업 스냅샷이 생성됩니다. 문제가 생길 경우 이전 날짜 상태로 롤백할 수 있습니다.</p>
+            
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 6px;">
+              <label style="font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 2px;">복원할 날짜 선택 (최근 15일 이내):</label>
+              <select id="backup-restore-select" style="padding: 10px; font-size: 13px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-main); font-family: var(--font-main); cursor: pointer; width: 100%;">
+                <option value="">-- 생성된 백업이 없습니다 --</option>
+              </select>
+              <button class="btn-success" onclick="restoreFromDailyBackup()" style="padding: 10px 16px; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 8px; width: 100%; background-color: #0f766e; border-color: #0f766e; color: white;">🕒 선택한 날짜로 데이터 복원 (롤백)</button>
+            </div>
+          </div>
           
         </div>
       </div>

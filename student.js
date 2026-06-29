@@ -98,6 +98,7 @@ let dailyAssignments = JSON.parse(localStorage.getItem('dailyAssignments')) || {
 let pendingRequests = JSON.parse(localStorage.getItem('pendingRequests')) || {};
 let absentLogs = JSON.parse(localStorage.getItem('absentLogs')) || {};
 let processedDeductionDates = JSON.parse(localStorage.getItem('processedDeductionDates')) || [];
+let dailyBackups = JSON.parse(localStorage.getItem('dailyBackups')) || {};
 let teacherPasscode = localStorage.getItem('teacherPasscode') || '1234';
 let googleClientId = localStorage.getItem('googleClientId') || '1010660265980-1dj6r5h1f3ls8ln0bmjrf5u3s9qjcekg.apps.googleusercontent.com';
 let googleAccessToken = localStorage.getItem('googleAccessToken') || '';
@@ -183,6 +184,12 @@ const saveData = (skipFirebase = false) => {
   localStorage.setItem('teacherPasscode', String(teacherPasscode));
   localStorage.setItem('dailyAnnouncements', JSON.stringify(dailyAnnouncements));
   localStorage.setItem('dailySchedules', JSON.stringify(dailySchedules));
+  localStorage.setItem('dailyBackups', JSON.stringify(dailyBackups));
+
+  // 오후 3시 자동 일일 백업 감지 (교사이면서 파이어베이스 저장인 경우에만)
+  if (isTeacherAuthenticated() && !skipFirebase) {
+    checkAndCreateDailyBackup();
+  }
 
   if (skipFirebase) return; // 로컬만 저장하고 파이어베이스 동기화 건너뜀
   if (isSyncingFromRemote) return;
@@ -234,7 +241,8 @@ const saveData = (skipFirebase = false) => {
       processedDeductionDates,
       teacherPasscode,
       dailyAnnouncements,
-      dailySchedules
+      dailySchedules,
+      dailyBackups
     }).catch(err => {
       console.error("[Firebase] 백그라운드 자동 업로드 실패:", err);
       // 교사 화면인 경우 알림창 표시 (권한 거부 또는 연결 실패 인지 유도)
@@ -643,6 +651,7 @@ const applyRemoteData = (data) => {
   teacherPasscode = data.teacherPasscode || '1234';
   dailyAnnouncements = data.dailyAnnouncements || dailyAnnouncements;
   dailySchedules = data.dailySchedules || dailySchedules;
+  dailyBackups = data.dailyBackups || dailyBackups;
   
   // 로컬 localStorage에도 영구 보존
   localStorage.setItem('students', JSON.stringify(students));
@@ -657,12 +666,18 @@ const applyRemoteData = (data) => {
   localStorage.setItem('teacherPasscode', String(teacherPasscode));
   localStorage.setItem('dailyAnnouncements', JSON.stringify(dailyAnnouncements));
   localStorage.setItem('dailySchedules', JSON.stringify(dailySchedules));
+  localStorage.setItem('dailyBackups', JSON.stringify(dailyBackups));
   
   isSyncingFromRemote = false;
   
   // 데이터베이스 중복 데이터 및 포인트 복구 클리닝 작업 실행 (교사인 경우에만)
   if (isTeacherAuthenticated() && config.db_cleaned_v1 !== true) {
     cleanDatabaseDuplicates();
+  }
+  
+  // 오후 3시 자동 일일 백업 감지 (교사인 경우에만)
+  if (isTeacherAuthenticated()) {
+    checkAndCreateDailyBackup();
   }
   
   // 미제출 감점 처리 재평가 (혹시 누락된 날이 있다면 자동 처리)
@@ -3286,3 +3301,4 @@ window.onload = () => {
   
   router();
 };
+

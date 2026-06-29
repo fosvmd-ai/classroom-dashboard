@@ -98,6 +98,7 @@ let dailyAssignments = JSON.parse(localStorage.getItem('dailyAssignments')) || {
 let pendingRequests = JSON.parse(localStorage.getItem('pendingRequests')) || {};
 let absentLogs = JSON.parse(localStorage.getItem('absentLogs')) || {};
 let processedDeductionDates = JSON.parse(localStorage.getItem('processedDeductionDates')) || [];
+let dailyBackups = JSON.parse(localStorage.getItem('dailyBackups')) || {};
 let teacherPasscode = localStorage.getItem('teacherPasscode') || '1234';
 let googleClientId = localStorage.getItem('googleClientId') || '1010660265980-1dj6r5h1f3ls8ln0bmjrf5u3s9qjcekg.apps.googleusercontent.com';
 let googleAccessToken = localStorage.getItem('googleAccessToken') || '';
@@ -183,6 +184,12 @@ const saveData = (skipFirebase = false) => {
   localStorage.setItem('teacherPasscode', String(teacherPasscode));
   localStorage.setItem('dailyAnnouncements', JSON.stringify(dailyAnnouncements));
   localStorage.setItem('dailySchedules', JSON.stringify(dailySchedules));
+  localStorage.setItem('dailyBackups', JSON.stringify(dailyBackups));
+
+  // 오후 3시 자동 일일 백업 감지 (교사이면서 파이어베이스 저장인 경우에만)
+  if (isTeacherAuthenticated() && !skipFirebase) {
+    checkAndCreateDailyBackup();
+  }
 
   if (skipFirebase) return; // 로컬만 저장하고 파이어베이스 동기화 건너뜀
   if (isSyncingFromRemote) return;
@@ -234,7 +241,8 @@ const saveData = (skipFirebase = false) => {
       processedDeductionDates,
       teacherPasscode,
       dailyAnnouncements,
-      dailySchedules
+      dailySchedules,
+      dailyBackups
     }).catch(err => {
       console.error("[Firebase] 백그라운드 자동 업로드 실패:", err);
       // 교사 화면인 경우 알림창 표시 (권한 거부 또는 연결 실패 인지 유도)
@@ -643,6 +651,7 @@ const applyRemoteData = (data) => {
   teacherPasscode = data.teacherPasscode || '1234';
   dailyAnnouncements = data.dailyAnnouncements || dailyAnnouncements;
   dailySchedules = data.dailySchedules || dailySchedules;
+  dailyBackups = data.dailyBackups || dailyBackups;
   
   // 로컬 localStorage에도 영구 보존
   localStorage.setItem('students', JSON.stringify(students));
@@ -657,12 +666,18 @@ const applyRemoteData = (data) => {
   localStorage.setItem('teacherPasscode', String(teacherPasscode));
   localStorage.setItem('dailyAnnouncements', JSON.stringify(dailyAnnouncements));
   localStorage.setItem('dailySchedules', JSON.stringify(dailySchedules));
+  localStorage.setItem('dailyBackups', JSON.stringify(dailyBackups));
   
   isSyncingFromRemote = false;
   
   // 데이터베이스 중복 데이터 및 포인트 복구 클리닝 작업 실행 (교사인 경우에만)
   if (isTeacherAuthenticated() && config.db_cleaned_v1 !== true) {
     cleanDatabaseDuplicates();
+  }
+  
+  // 오후 3시 자동 일일 백업 감지 (교사인 경우에만)
+  if (isTeacherAuthenticated()) {
+    checkAndCreateDailyBackup();
   }
   
   // 미제출 감점 처리 재평가 (혹시 누락된 날이 있다면 자동 처리)
@@ -3776,6 +3791,9 @@ const renderGradesConfig = () => {
   if (autoDeductionEl) {
     autoDeductionEl.checked = config.auto_deduction_enabled !== false;
   }
+  
+  // 복구용 백업 목록 드롭다운 채우기
+  populateBackupRestoreDropdown();
 };
 
 const toggleAutoDeductionSetting = () => {
@@ -6740,3 +6758,164 @@ window.onload = () => {
   
   router();
 };
+
+// @TEACHER_ONLY_START
+// 오후 3시 자동 일일 백업 기능 구현
+const checkAndCreateDailyBackup = () => {
+  if (!isTeacherAuthenticated()) return;
+  
+  const now = new Date();
+  if (now.getHours() < 15) return; // 15시(오후 3시) 이전이면 백업 보류
+  
+  const todayStr = getTodayDateString();
+  if (dailyBackups[todayStr]) return; // 이미 오늘의 백업이 존재하면 보류
+  
+  console.log(`[Backup] 15:00 PM auto daily backup starting for ${todayStr}...`);
+  
+  const snapshot = {
+    students: JSON.parse(JSON.stringify(students)),
+    grades: JSON.parse(JSON.stringify(grades)),
+    dailyLogs: JSON.parse(JSON.stringify(dailyLogs)),
+    pointHistory: JSON.parse(JSON.stringify(pointHistory)),
+    config: JSON.parse(JSON.stringify(config)),
+    dailyAssignments: JSON.parse(JSON.stringify(dailyAssignments)),
+    absentLogs: JSON.parse(JSON.stringify(absentLogs)),
+    processedDeductionDates: JSON.parse(JSON.stringify(processedDeductionDates)),
+    dailyAnnouncements: JSON.parse(JSON.stringify(dailyAnnouncements)),
+    dailySchedules: JSON.parse(JSON.stringify(dailySchedules)),
+    timestamp: now.getTime()
+  };
+  
+  dailyBackups[todayStr] = snapshot;
+  
+  // 최대 15일 백업 보관 정책
+  const backupKeys = Object.keys(dailyBackups).sort();
+  if (backupKeys.length > 15) {
+    const keysToRemove = backupKeys.slice(0, backupKeys.length - 15);
+    keysToRemove.forEach(key => {
+      delete dailyBackups[key];
+      console.log(`[Backup] Deleted expired backup snapshot: ${key}`);
+    });
+  }
+  
+  // 로컬 및 원격 저장
+  localStorage.setItem('dailyBackups', JSON.stringify(dailyBackups));
+  if (currentSyncMode === 'firebase' && dbRef) {
+    dbRef.update({ dailyBackups })
+      .then(() => {
+        console.log("[Backup] Auto daily backup uploaded to Firebase successfully.");
+        // 복구용 목록 실시간 최적화
+        populateBackupRestoreDropdown();
+      })
+      .catch(err => {
+        console.error("[Backup] Firebase auto backup failed:", err);
+      });
+  }
+};
+window.checkAndCreateDailyBackup = checkAndCreateDailyBackup;
+
+// 복구용 백업 목록 드롭다운 채우기
+const populateBackupRestoreDropdown = () => {
+  const selectEl = document.getElementById('backup-restore-select');
+  if (!selectEl) return;
+  
+  selectEl.innerHTML = '';
+  
+  const keys = Object.keys(dailyBackups).sort().reverse();
+  if (keys.length === 0) {
+    const opt = document.createElement('option');
+    opt.value = "";
+    opt.textContent = "-- 생성된 백업이 없습니다 --";
+    selectEl.appendChild(opt);
+    return;
+  }
+  
+  const optDefault = document.createElement('option');
+  optDefault.value = "";
+  optDefault.textContent = `-- 선택해 주세요 (${keys.length}개의 백업 존재) --`;
+  selectEl.appendChild(optDefault);
+  
+  keys.forEach(key => {
+    const backup = dailyBackups[key];
+    const dateFormatted = formatKoreanDate(key);
+    const studentCount = backup.students ? backup.students.length : 0;
+    const taskCount = backup.dailyAssignments && backup.dailyAssignments[key] ? backup.dailyAssignments[key].length : 0;
+    
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = `🕒 ${dateFormatted} 백업 (학생 ${studentCount}명, 과제 ${taskCount}개)`;
+    selectEl.appendChild(opt);
+  });
+};
+window.populateBackupRestoreDropdown = populateBackupRestoreDropdown;
+
+// 일일 백업 데이터로 복원 (롤백)
+const restoreFromDailyBackup = () => {
+  if (!isTeacherAuthenticated()) {
+    alert("⚠️ 권한이 없습니다. 교사 로그인 후 이용해주세요.");
+    return;
+  }
+  
+  const selectEl = document.getElementById('backup-restore-select');
+  if (!selectEl) return;
+  
+  const selectedKey = selectEl.value;
+  if (!selectedKey) {
+    alert("⚠️ 복원할 날짜의 백업 스냅샷을 선택해 주세요.");
+    return;
+  }
+  
+  const backup = dailyBackups[selectedKey];
+  if (!backup) {
+    alert("⚠️ 선택한 날짜의 백업 데이터가 올바르지 않습니다.");
+    return;
+  }
+  
+  const dateFormatted = formatKoreanDate(selectedKey);
+  if (!confirm(`⚠️ [경고] 정말로 전체 데이터를 ${dateFormatted} 백업 상태로 되돌리시겠습니까?\n\n이 작업은 현재 상태의 데이터를 완전히 덮어씌웁니다.`)) {
+    return;
+  }
+  
+  console.log(`[Backup] Restoring entire database to ${selectedKey} state...`);
+  
+  students = backup.students || students;
+  grades = backup.grades || grades;
+  dailyLogs = backup.dailyLogs || dailyLogs;
+  pointHistory = backup.pointHistory || pointHistory;
+  config = backup.config || config;
+  dailyAssignments = backup.dailyAssignments || dailyAssignments;
+  absentLogs = backup.absentLogs || {};
+  processedDeductionDates = backup.processedDeductionDates || [];
+  dailyAnnouncements = backup.dailyAnnouncements || dailyAnnouncements;
+  dailySchedules = backup.dailySchedules || dailySchedules;
+  
+  // 파이어베이스 및 로컬 저장소 동기화
+  if (currentSyncMode === 'firebase' && dbRef) {
+    dbRef.update({
+      students,
+      grades,
+      dailyLogs,
+      pointHistory,
+      config,
+      dailyAssignments,
+      absentLogs,
+      processedDeductionDates,
+      dailyAnnouncements,
+      dailySchedules
+    }).then(() => {
+      saveData(true);
+      alert(`🎉 성공적으로 데이터를 ${dateFormatted} 상태로 복원 완료했습니다!`);
+      location.reload();
+    }).catch(err => {
+      console.error("[Backup] Firebase restore failed:", err);
+      saveData();
+      alert("⚠️ 파이어베이스 서버 원격 저장에 실패하여 로컬만 복원되었습니다. 페이지를 새로고침하여 확인해보세요.");
+    });
+  } else {
+    saveData();
+    alert(`🎉 성공적으로 데이터를 ${dateFormatted} 상태로 복원 완료했습니다!`);
+    location.reload();
+  }
+};
+window.restoreFromDailyBackup = restoreFromDailyBackup;
+// @TEACHER_ONLY_END
