@@ -548,15 +548,18 @@ const updateSyncStatusUI = () => {
   const btnLandingTeacherLogin = document.getElementById('btn-landing-teacher-login');
   const btnLandingTeacherBypass = document.getElementById('btn-landing-teacher-bypass');
   const btnLandingGoDashboard = document.getElementById('btn-landing-go-dashboard');
+  const btnLandingLogoutWrapper = document.getElementById('btn-landing-logout-wrapper');
   if (btnLandingTeacherLogin && btnLandingTeacherBypass && btnLandingGoDashboard) {
     if (isTeacherAuthenticated()) {
       btnLandingTeacherLogin.classList.add('hidden');
       btnLandingTeacherBypass.classList.add('hidden');
       btnLandingGoDashboard.classList.remove('hidden');
+      if (btnLandingLogoutWrapper) btnLandingLogoutWrapper.classList.remove('hidden');
     } else {
       btnLandingTeacherLogin.classList.remove('hidden');
       btnLandingTeacherBypass.classList.remove('hidden');
       btnLandingGoDashboard.classList.add('hidden');
+      if (btnLandingLogoutWrapper) btnLandingLogoutWrapper.classList.add('hidden');
     }
   }
 };
@@ -6247,13 +6250,14 @@ window.changeGridColumns = changeGridColumns;
 const handleTeacherLogout = () => {
   sessionStorage.removeItem('teacher_authenticated');
   clearGoogleTokens();
-  if (currentSyncMode === 'firebase') {
-    if (firebase.apps.length > 0) {
+  try {
+    if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
       firebase.auth().signOut().catch(err => console.error(err));
     }
-    firebaseUser = null;
-    localStorage.removeItem('firebaseUser');
-  }
+  } catch (e) {}
+  firebaseUser = null;
+  localStorage.removeItem('firebaseUser');
+  localStorage.removeItem('fb_teacher_uid');
   alert("로그아웃 되었습니다.");
   location.reload();
 };
