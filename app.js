@@ -49,6 +49,19 @@ const getTodayDateString = () => {
   return `${year}-${month}-${date}`;
 };
 
+const cleanAssignments = (assignmentsObj) => {
+  const cleaned = {};
+  if (!assignmentsObj) return cleaned;
+  for (let key in assignmentsObj) {
+    if (Array.isArray(assignmentsObj[key])) {
+      cleaned[key] = assignmentsObj[key].filter(Boolean);
+    } else {
+      cleaned[key] = assignmentsObj[key];
+    }
+  }
+  return cleaned;
+};
+
 // 날짜 포맷팅 헬퍼 (예: 2026-06-15 -> 2026년 6월 15일 (월요일))
 const formatKoreanDate = (dateStr) => {
   if (!dateStr) return '';
@@ -94,7 +107,7 @@ if (Object.keys(dailyAnnouncements).length === 0 && config.today_announcement) {
 }
 
 // [개선] 날짜별 과제 설정을 별도 보관하는 스토리지 로드
-let dailyAssignments = JSON.parse(localStorage.getItem('dailyAssignments')) || {};
+let dailyAssignments = cleanAssignments(JSON.parse(localStorage.getItem('dailyAssignments')) || {});
 let pendingRequests = JSON.parse(localStorage.getItem('pendingRequests')) || {};
 let absentLogs = JSON.parse(localStorage.getItem('absentLogs')) || {};
 let processedDeductionDates = (Array.isArray(JSON.parse(localStorage.getItem('processedDeductionDates'))) ? JSON.parse(localStorage.getItem('processedDeductionDates')) : []).filter(Boolean);
@@ -647,7 +660,7 @@ const applyRemoteData = (data) => {
   dailyLogs = data.dailyLogs || dailyLogs;
   pointHistory = Array.isArray(data.pointHistory) ? data.pointHistory.filter(Boolean) : (pointHistory || []).filter(Boolean);
   config = data.config || config;
-  dailyAssignments = data.dailyAssignments || dailyAssignments;
+  dailyAssignments = cleanAssignments(data.dailyAssignments || dailyAssignments);
   pendingRequests = data.pendingRequests || {};
   absentLogs = data.absentLogs || {};
   processedDeductionDates = Array.isArray(data.processedDeductionDates) ? data.processedDeductionDates.filter(Boolean) : (processedDeductionDates || []).filter(Boolean);
@@ -4218,7 +4231,7 @@ const renderStudentPortal = (studentId) => {
         try { dailyLogs = JSON.parse(localStorage.getItem('dailyLogs')) || dailyLogs; } catch(e) {}
         try { pointHistory = JSON.parse(localStorage.getItem('pointHistory')) || pointHistory; } catch(e) {}
         try { config = JSON.parse(localStorage.getItem('config')) || config; } catch(e) {}
-        try { dailyAssignments = JSON.parse(localStorage.getItem('dailyAssignments')) || dailyAssignments; } catch(e) {}
+        try { dailyAssignments = cleanAssignments(JSON.parse(localStorage.getItem('dailyAssignments')) || dailyAssignments); } catch(e) {}
         try { absentLogs = JSON.parse(localStorage.getItem('absentLogs')) || absentLogs; } catch(e) {}
         try { dailyAnnouncements = JSON.parse(localStorage.getItem('dailyAnnouncements')) || dailyAnnouncements; } catch(e) {}
         try { teacherPasscode = localStorage.getItem('teacherPasscode') || teacherPasscode; } catch(e) {}
@@ -5608,7 +5621,7 @@ const importClassroomData = (event) => {
       localStorage.setItem('dailyLogs', JSON.stringify(data.dailyLogs || {}));
       localStorage.setItem('pointHistory', JSON.stringify(data.pointHistory || []));
       localStorage.setItem('config', JSON.stringify(data.config || {}));
-      localStorage.setItem('dailyAssignments', JSON.stringify(data.dailyAssignments || {}));
+      localStorage.setItem('dailyAssignments', JSON.stringify(cleanAssignments(data.dailyAssignments || {})));
       localStorage.setItem('pendingRequests', JSON.stringify(data.pendingRequests || {}));
       localStorage.setItem('absentLogs', JSON.stringify(data.absentLogs || {}));
       localStorage.setItem('processedDeductionDates', JSON.stringify(data.processedDeductionDates || []));
@@ -5623,7 +5636,7 @@ const importClassroomData = (event) => {
         dailyLogs = data.dailyLogs || {};
         pointHistory = data.pointHistory || [];
         config = data.config || {};
-        dailyAssignments = data.dailyAssignments || {};
+        dailyAssignments = cleanAssignments(data.dailyAssignments || {});
         pendingRequests = data.pendingRequests || {};
         absentLogs = data.absentLogs || {};
         processedDeductionDates = data.processedDeductionDates || [];
@@ -5663,7 +5676,7 @@ const importClassroomData = (event) => {
         dailyLogs = data.dailyLogs || {};
         pointHistory = data.pointHistory || [];
         config = data.config || {};
-        dailyAssignments = data.dailyAssignments || {};
+        dailyAssignments = cleanAssignments(data.dailyAssignments || {});
         pendingRequests = data.pendingRequests || {};
         absentLogs = data.absentLogs || {};
         processedDeductionDates = data.processedDeductionDates || [];
@@ -6915,7 +6928,7 @@ const restoreFromDailyBackup = () => {
   dailyLogs = backup.dailyLogs || dailyLogs;
   pointHistory = backup.pointHistory || pointHistory;
   config = backup.config || config;
-  dailyAssignments = backup.dailyAssignments || dailyAssignments;
+  dailyAssignments = cleanAssignments(backup.dailyAssignments || dailyAssignments);
   absentLogs = backup.absentLogs || {};
   processedDeductionDates = backup.processedDeductionDates || [];
   dailyAnnouncements = backup.dailyAnnouncements || dailyAnnouncements;
