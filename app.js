@@ -185,19 +185,29 @@ const initDatabaseMigration = () => {
 };
 
 const saveData = (skipFirebase = false) => {
-  localStorage.setItem('students', JSON.stringify(students));
-  localStorage.setItem('grades', JSON.stringify(grades));
-  localStorage.setItem('dailyLogs', JSON.stringify(dailyLogs));
-  localStorage.setItem('pointHistory', JSON.stringify(pointHistory));
-  localStorage.setItem('config', JSON.stringify(config));
-  localStorage.setItem('dailyAssignments', JSON.stringify(dailyAssignments));
-  localStorage.setItem('pendingRequests', JSON.stringify(pendingRequests));
-  localStorage.setItem('absentLogs', JSON.stringify(absentLogs));
-  localStorage.setItem('processedDeductionDates', JSON.stringify(processedDeductionDates));
-  localStorage.setItem('teacherPasscode', String(teacherPasscode));
-  localStorage.setItem('dailyAnnouncements', JSON.stringify(dailyAnnouncements));
-  localStorage.setItem('dailySchedules', JSON.stringify(dailySchedules));
-  localStorage.setItem('dailyBackups', JSON.stringify(dailyBackups));
+  try {
+    localStorage.setItem('students', JSON.stringify(students));
+    localStorage.setItem('grades', JSON.stringify(grades));
+    localStorage.setItem('dailyLogs', JSON.stringify(dailyLogs));
+    localStorage.setItem('pointHistory', JSON.stringify(pointHistory));
+    localStorage.setItem('config', JSON.stringify(config));
+    localStorage.setItem('dailyAssignments', JSON.stringify(dailyAssignments));
+    localStorage.setItem('pendingRequests', JSON.stringify(pendingRequests));
+    localStorage.setItem('absentLogs', JSON.stringify(absentLogs));
+    localStorage.setItem('processedDeductionDates', JSON.stringify(processedDeductionDates));
+    localStorage.setItem('teacherPasscode', String(teacherPasscode));
+    localStorage.setItem('dailyAnnouncements', JSON.stringify(dailyAnnouncements));
+    localStorage.setItem('dailySchedules', JSON.stringify(dailySchedules));
+    localStorage.setItem('dailyBackups', JSON.stringify(dailyBackups));
+  } catch (e) {
+    console.warn("[Storage] localStorage 용량 초과 또는 쓰기 오류 발생 (클라우드 동기화는 계속 진행됨):", e);
+    if (e.name === 'QuotaExceededError' || e.code === 22) {
+      try {
+        localStorage.removeItem('dailyBackups');
+        console.log("[Storage] localStorage 백업 데이터를 비워 임시 용량을 확보했습니다.");
+      } catch (innerEx) {}
+    }
+  }
 
   // 오후 3시 자동 일일 백업 감지 (교사이면서 파이어베이스 저장인 경우에만)
   if (isTeacherAuthenticated() && !skipFirebase) {
@@ -670,19 +680,28 @@ const applyRemoteData = (data) => {
   dailyBackups = data.dailyBackups || dailyBackups;
   
   // 로컬 localStorage에도 영구 보존
-  localStorage.setItem('students', JSON.stringify(students));
-  localStorage.setItem('grades', JSON.stringify(grades));
-  localStorage.setItem('dailyLogs', JSON.stringify(dailyLogs));
-  localStorage.setItem('pointHistory', JSON.stringify(pointHistory));
-  localStorage.setItem('config', JSON.stringify(config));
-  localStorage.setItem('dailyAssignments', JSON.stringify(dailyAssignments));
-  localStorage.setItem('pendingRequests', JSON.stringify(pendingRequests));
-  localStorage.setItem('absentLogs', JSON.stringify(absentLogs));
-  localStorage.setItem('processedDeductionDates', JSON.stringify(processedDeductionDates));
-  localStorage.setItem('teacherPasscode', String(teacherPasscode));
-  localStorage.setItem('dailyAnnouncements', JSON.stringify(dailyAnnouncements));
-  localStorage.setItem('dailySchedules', JSON.stringify(dailySchedules));
-  localStorage.setItem('dailyBackups', JSON.stringify(dailyBackups));
+  try {
+    localStorage.setItem('students', JSON.stringify(students));
+    localStorage.setItem('grades', JSON.stringify(grades));
+    localStorage.setItem('dailyLogs', JSON.stringify(dailyLogs));
+    localStorage.setItem('pointHistory', JSON.stringify(pointHistory));
+    localStorage.setItem('config', JSON.stringify(config));
+    localStorage.setItem('dailyAssignments', JSON.stringify(dailyAssignments));
+    localStorage.setItem('pendingRequests', JSON.stringify(pendingRequests));
+    localStorage.setItem('absentLogs', JSON.stringify(absentLogs));
+    localStorage.setItem('processedDeductionDates', JSON.stringify(processedDeductionDates));
+    localStorage.setItem('teacherPasscode', String(teacherPasscode));
+    localStorage.setItem('dailyAnnouncements', JSON.stringify(dailyAnnouncements));
+    localStorage.setItem('dailySchedules', JSON.stringify(dailySchedules));
+    localStorage.setItem('dailyBackups', JSON.stringify(dailyBackups));
+  } catch (e) {
+    console.warn("[Storage] applyRemoteData 로컬 저장 오류:", e);
+    if (e.name === 'QuotaExceededError' || e.code === 22) {
+      try {
+        localStorage.removeItem('dailyBackups');
+      } catch (innerEx) {}
+    }
+  }
   
   isSyncingFromRemote = false;
   
@@ -791,7 +810,10 @@ const initFirebaseSync = () => {
       app = firebase.app();
     }
     
-    const syncKey = firebaseConfig.classroomSyncKey;
+    let syncKey = firebaseConfig.classroomSyncKey;
+    if (syncKey) {
+      syncKey = syncKey.replace(/[\.\$\#\[\]\/]/g, '-');
+    }
     if (!syncKey) {
       updateSyncStatusUI();
       return;
@@ -966,7 +988,9 @@ const saveFirebaseConfig = () => {
   const dbUrl = document.getElementById('fb-db-url').value.trim();
   const apiKey = document.getElementById('fb-api-key').value.trim();
   const projId = document.getElementById('fb-project-id').value.trim();
-  const syncKey = document.getElementById('fb-sync-key').value.trim();
+  let syncKey = document.getElementById('fb-sync-key').value.trim();
+  // Firebase 경로 금지 문자(., $, #, [, ], /)를 하이픈(-)으로 자동 필터링하여 크래시 방지
+  syncKey = syncKey.replace(/[\.\$\#\[\]\/]/g, '-');
   
   let configObj = null;
   
