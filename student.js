@@ -2912,6 +2912,108 @@ const isTeacherAuthenticated = () => {
   return false;
 };
 
+const loginAsTeacher = () => {
+  if (currentSyncMode === 'gdrive') {
+    if (!tokenClient) {
+      initGoogleDriveSync();
+    }
+    if (tokenClient) {
+      tokenClient.requestAccessToken();
+      sessionStorage.setItem('teacher_authenticated', 'true');
+    } else {
+      alert("❌ 구글 드라이브 동기화 초기화 실패. Client ID를 확인해 주세요.");
+    }
+    return;
+  }
+
+  // 그 외의 경우 (local이거나 firebase 모드인 경우) -> 기본적으로 Firebase 구글 로그인을 수행한다.
+  // 만약 firebaseConfig가 없거나 유효하지 않다면 defaultFirebaseConfig를 기본값으로 사용한다.
+  let targetConfig = firebaseConfig;
+  if (!targetConfig || !targetConfig.apiKey || !targetConfig.databaseURL || !targetConfig.projectId) {
+    targetConfig = { ...defaultFirebaseConfig };
+  }
+
+  const doLogin = async () => {
+    let retries = 0;
+    while ((typeof firebase === 'undefined' || !firebase.auth) && retries < 30) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      retries++;
+    }
+    if (typeof firebase === 'undefined' || !firebase.auth) {
+      alert("❌ 파이어베이스 SDK 로딩 실패. 네트워크 연결을 확인하고 다시 시도해 주세요.");
+      return;
+    }
+
+    if (firebase.apps.length === 0) {
+      firebase.initializeApp(targetConfig);
+    }
+    // 기존 Firebase 세션을 강제로 먼저 종료하여 계정 선택 창이 반드시 뜨도록 처리
+    try {
+      await firebase.auth().signOut();
+    } catch (e) {
+      // 로그아웃 실패해도 계속 진행
+    }
+    const provider = new firebase.auth.GoogleAuthProvider();
+    // 로그인 시 항상 구글 계정 선택 창을 띄우도록 설정하여 다른 계정 전환 지원
+    provider.setCustomParameters({ prompt: 'select_account' });
+    
+    // 로그인 시도 전 로컬 학급 데이터 무조건 전면 삭제 (UID 비교 없이 항상 초기화)
+    // → 어느 계정이든 로그인 후 Firebase 클라우드에서 해당 계정 데이터를 새로 불러옴
+    console.log("[Firebase] 로그인 시도 전 로컬 학급 데이터 전면 초기화");
+    localStorage.removeItem('students');
+    localStorage.removeItem('grades');
+    localStorage.removeItem('dailyLogs');
+    localStorage.removeItem('pointHistory');
+    localStorage.removeItem('config');
+    localStorage.removeItem('dailyAssignments');
+    localStorage.removeItem('pendingRequests');
+    localStorage.removeItem('absentLogs');
+    localStorage.removeItem('processedDeductionDates');
+    localStorage.removeItem('dailyAnnouncements');
+    localStorage.removeItem('dailySchedules');
+    localStorage.removeItem('teacherPasscode');
+    localStorage.removeItem('firebaseUser');
+    localStorage.removeItem('fb_teacher_uid');
+    
+    firebase.auth().signInWithPopup(provider).then((result) => {
+      const user = result.user;
+
+      firebaseUser = {
+        uid: user.uid,
+        displayName: user.displayName,
+        email: user.email,
+        photoURL: user.photoURL
+      };
+      localStorage.setItem('firebaseUser', JSON.stringify(firebaseUser));
+      localStorage.setItem('fb_teacher_uid', user.uid);
+      sessionStorage.setItem('teacher_authenticated', 'true');
+      
+      // 자동 연동: 구글 계정 ID(UID)를 이 선생님의 학급 연동 키로 자동 할당
+      targetConfig.classroomSyncKey = user.uid;
+      localStorage.setItem('firebaseConfig', JSON.stringify(targetConfig));
+      firebaseConfig = targetConfig;
+      
+      localStorage.setItem('currentSyncMode', 'firebase');
+      currentSyncMode = 'firebase';
+      
+      alert(`🎉 안녕하세요, ${user.displayName} 선생님!\n선생님의 구글 UID 기반 학급 관리 대시보드로 로그인되었습니다.\n(데이터가 클라우드에 자동 연동됩니다)`);
+      window.location.hash = "#teacher";
+      location.reload();
+    }).catch((error) => {
+      console.error("[Firebase] 교사 로그인 실패:", error);
+      alert("❌ 로그인 실패: " + error.message);
+    });
+  };
+  doLogin().catch(err => {
+    console.error(err);
+    alert("❌ 파이어베이스 구글 연동 오류: " + err.message);
+  });
+};
+
+const promptTeacherLogin = () => {
+  window.location.hash = "#teacher";
+};
+
 window.submitStudentLogin = submitStudentLogin;
 window.goBackToStudentPortalLogin = goBackToStudentPortalLogin;
 window.copyStudentPortalLink = copyStudentPortalLink;

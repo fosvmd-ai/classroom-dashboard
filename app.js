@@ -5432,7 +5432,6 @@ const isTeacherAuthenticated = () => {
   return false;
 };
 
-// @TEACHER_ONLY_START
 const loginAsTeacher = () => {
   if (currentSyncMode === 'gdrive') {
     if (!tokenClient) {
@@ -5535,7 +5534,7 @@ const promptTeacherLogin = () => {
   window.location.hash = "#teacher";
 };
 
-
+// @TEACHER_ONLY_START
 // ==========================================================================
 // 12. 학급 데이터 백업 및 복원 (Classroom Data Backup & Restore)
 // ==========================================================================
