@@ -1694,16 +1694,8 @@ const renderUnsubmittedView = (baseDateStr) => {
   if (!containerEl) return;
   containerEl.innerHTML = '';
   
-  // 최근 일주일(7일) 날짜 배열 생성 (선택된 baseDateStr 기준 역순)
-  const dates = [];
-  const baseDate = new Date(baseDateStr);
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(baseDate.getTime() - i * 24 * 60 * 60 * 1000);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    dates.push(`${year}-${month}-${day}`);
-  }
+  // dailyAssignments에 존재하는 모든 날짜 키 수집 (역순 정렬)
+  const dates = Object.keys(dailyAssignments || {}).sort().reverse();
   
   let hasAnyTasks = false;
   let hasAnyUnsubmittedTasks = false;
@@ -1798,7 +1790,7 @@ const renderUnsubmittedView = (baseDateStr) => {
     containerEl.innerHTML = `
       <div style="width:100%; text-align:center; padding:40px; background:white; border-radius:var(--radius-md); border:1px dashed var(--border-color);">
         <span style="font-size:44px;">⚪</span>
-        <h3 style="margin-top:12px; color:var(--text-muted);">최근 일주일 내에 설정된 과제가 없습니다.</h3>
+        <h3 style="margin-top:12px; color:var(--text-muted);">설정된 과제가 없습니다.</h3>
       </div>
     `;
   } else if (!hasAnyUnsubmittedTasks) {
@@ -1834,7 +1826,7 @@ const toggleTaskFromUnsubmittedList = (event, studentId, taskId, points, taskNam
     student_id: studentId,
     timestamp: nowStr,
     points_changed: points,
-    reason: `${taskName} 완료 적립 (최근 7일 미제출자 명단 클릭)`,
+    reason: `${taskName} 완료 적립 (미제출자 명단 클릭)`,
     assignment_date: targetDateKey,
     task_id: taskId
   });
@@ -1924,15 +1916,8 @@ const bulkDeductUnsubmitted = (event, taskId, taskName, dateKey) => {
 };
 
 const allUnsubmittedDeduct = (baseDateStr) => {
-  const baseDate = new Date(baseDateStr);
-  const dates = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(baseDate.getTime() - i * 24 * 60 * 60 * 1000);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    dates.push(`${year}-${month}-${day}`);
-  }
+  // dailyAssignments에 존재하는 모든 날짜 키 수집 (역순 정렬)
+  const dates = Object.keys(dailyAssignments || {}).sort().reverse();
   
   // Calculate unsubmitted count for each student
   const studentDeductions = [];
@@ -1973,12 +1958,9 @@ const allUnsubmittedDeduct = (baseDateStr) => {
     return;
   }
   
-  const dateParts = baseDateStr.split('-');
-  const dateDisplay = `${parseInt(dateParts[1])}/${parseInt(dateParts[2])}`;
-  
   // Set modal text message
   document.getElementById('bulk-deduct-modal-message').innerText = 
-    `정말로 최근 일주일 (${dateDisplay} 기준) 모든 미제출 과제 총 ${totalDeductedPoints}건에 대해 학생 ${affectedStudentsCount}명에게 미제출 수만큼 감점하시겠습니까?\n(각각 미제출 과제 개수만큼 1점씩 감점됩니다.)`;
+    `정말로 전체 미제출 과제 총 ${totalDeductedPoints}건에 대해 학생 ${affectedStudentsCount}명에게 미제출 수만큼 감점하시겠습니까?\n(각각 미제출 과제 개수만큼 1점씩 감점됩니다.)`;
   
   // Set pending action
   bulkDeductPendingAction = () => {
@@ -2483,20 +2465,15 @@ const renderStudentPortal = (studentId) => {
     }
   }
 
-  // [Option B] 최근 7일간의 미제출 과제 추적 (동적 대응)
+  // [Option B] 전체 미제출 과제 추적 (동적 대응)
   const outstandingEl = document.getElementById('portal-outstanding-list');
   outstandingEl.innerHTML = '';
 
   const outstanding = [];
-  const now = new Date();
   
-  for (let i = 0; i < 7; i++) {
-    const pastDate = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-    const year = pastDate.getFullYear();
-    const month = String(pastDate.getMonth() + 1).padStart(2, '0');
-    const dateStr = String(pastDate.getDate()).padStart(2, '0');
-    const checkDateKey = `${year}-${month}-${dateStr}`;
-
+  const checkDateKeys = Object.keys(dailyAssignments || {}).sort().reverse();
+  
+  checkDateKeys.forEach(checkDateKey => {
     const tasksForDay = dailyAssignments[checkDateKey] || [];
     const logsForDay = dailyLogs[checkDateKey] || {};
     const studentLogForDay = logsForDay[student.student_id] || {};
@@ -2508,6 +2485,11 @@ const renderStudentPortal = (studentId) => {
           const isPending = !!(pendingRequests[checkDateKey] && 
                                pendingRequests[checkDateKey][student.student_id] && 
                                pendingRequests[checkDateKey][student.student_id][task.id]);
+          
+          const dateParts = checkDateKey.split('-');
+          const month = parseInt(dateParts[1]);
+          const dateStr = parseInt(dateParts[2]);
+          
           outstanding.push({
             dateKey: checkDateKey,
             taskId: task.id,
@@ -2519,7 +2501,7 @@ const renderStudentPortal = (studentId) => {
         }
       });
     }
-  }
+  });
 
   if (outstanding.length > 0) {
     outstanding.forEach(item => {
@@ -2542,7 +2524,7 @@ const renderStudentPortal = (studentId) => {
       outstandingEl.appendChild(div);
     });
   } else {
-    outstandingEl.innerHTML = `<div class="no-outstanding-msg">🎉 최근 7일 내 밀린 과제가 한 개도 없어요! 참 잘했습니다.</div>`;
+    outstandingEl.innerHTML = `<div class="no-outstanding-msg">🎉 밀린 과제가 한 개도 없어요! 참 잘했습니다.</div>`;
   }
 
   const historyEl = document.getElementById('portal-history-list');
