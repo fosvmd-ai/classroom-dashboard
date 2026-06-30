@@ -803,7 +803,36 @@ const initFirebaseSync = () => {
         dbRef.off();
       }
       dbRef = firebase.database().ref('classrooms/' + key);
+      
+      // 만약 복원 후 업로드 대기 중인 상태라면, 원격 데이터 수신을 일시 차단하고 로컬 데이터를 원격에 업로드
+      if (localStorage.getItem('restore_pending_upload') === 'true') {
+        console.log("[Firebase] 복원 데이터 업로드 대기 감지 → 원격에 로컬 데이터 업로드 시작");
+        dbRef.set({
+          students,
+          grades,
+          dailyLogs,
+          pointHistory,
+          config,
+          dailyAssignments,
+          absentLogs,
+          processedDeductionDates,
+          teacherPasscode,
+          dailyAnnouncements,
+          dailySchedules
+        }).then(() => {
+          localStorage.removeItem('restore_pending_upload');
+          console.log("[Firebase] 복원 데이터 업로드 완료, 동기화 정상 진행");
+          location.reload();
+        }).catch(err => {
+          console.error("[Firebase] 복원 데이터 업로드 실패:", err);
+          localStorage.removeItem('restore_pending_upload');
+        });
+      }
+
       dbRef.on('value', (snapshot) => {
+        if (localStorage.getItem('restore_pending_upload') === 'true') {
+          return;
+        }
         const data = snapshot.val();
         if (data) {
           applyRemoteData(data);
