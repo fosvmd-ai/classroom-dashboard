@@ -3165,6 +3165,9 @@ const renderPointHistoryDatabase = () => {
     `;
     tableBody.appendChild(tr);
   });
+  if (typeof filterPointHistoryTable === 'function') {
+    filterPointHistoryTable();
+  }
 };
 
 const cancelPointHistoryItem = (timestamp, studentId) => {
