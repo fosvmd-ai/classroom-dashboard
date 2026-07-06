@@ -6883,7 +6883,17 @@ const checkAndCreateDailyBackup = () => {
   }
   
   // 로컬 및 원격 저장
-  localStorage.setItem('dailyBackups', JSON.stringify(dailyBackups));
+  try {
+    localStorage.setItem('dailyBackups', JSON.stringify(dailyBackups));
+  } catch (e) {
+    console.warn("[Backup] localStorage 용량 초과로 dailyBackups 저장 실패 (클라우드 동기화는 진행):", e);
+    if (e.name === 'QuotaExceededError' || e.code === 22) {
+      try {
+        localStorage.removeItem('dailyBackups');
+        console.log("[Backup] localStorage 백업 데이터를 비워 임시 용량을 확보했습니다.");
+      } catch (innerEx) {}
+    }
+  }
   if (currentSyncMode === 'firebase' && dbRef) {
     dbRef.update({ dailyBackups })
       .then(() => {
