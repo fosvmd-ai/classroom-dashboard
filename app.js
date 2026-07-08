@@ -4653,38 +4653,27 @@ const checkWeeklyBonus = (student, todayStr) => {
     return false;
   }
   
-  // 오늘이 금요일(5), 토요일(6), 일요일(0) 인 경우에만 주간 완료 보너스 지급 판정
+  // 이번 주 전체 7일(월~일)의 출석 일수 계산
+  const fullWeekDays = [];
   const d = parseLocalDate(todayStr);
-  const isFridayOrLater = d.getDay() >= 5 || d.getDay() === 0;
-  if (!isFridayOrLater) {
-    return false;
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // 월요일 날짜 구하기
+  const monday = new Date(d.setDate(diff));
+  for (let i = 0; i < 7; i++) {
+    const temp = new Date(monday);
+    temp.setDate(monday.getDate() + i);
+    fullWeekDays.push(formatLocalDate(temp));
   }
   
-  // 월~금 모든 날짜에 대해 출석 및 과제 완수 검증
-  let isAllComplete = true;
-  for (const date of weekdays) {
-    // 1. 출석체크 검사
-    const attended = student.attendance && student.attendance[date] === true;
-    if (!attended) {
-      isAllComplete = false;
-      break;
+  let attendanceCount = 0;
+  fullWeekDays.forEach(date => {
+    if (student.attendance && student.attendance[date] === true) {
+      attendanceCount++;
     }
-    
-    // 2. 과제 제출 검사
-    const tasks = dailyAssignments[date] || [];
-    const dayLogs = dailyLogs[date] || {};
-    const studentLog = dayLogs[student.student_id] || {};
-    
-    for (const task of tasks) {
-      if (studentLog[task.id] !== true) {
-        isAllComplete = false;
-        break;
-      }
-    }
-    if (!isAllComplete) break;
-  }
+  });
   
-  if (isAllComplete) {
+  // 연속 여부와 무관하게 이번 주에 누적 5일 이상 출석체크한 경우 보너스 지급
+  if (attendanceCount >= 5) {
     // 보너스 점수 지급 (+1점)
     student.weekly_bonus[weekId] = true;
     student.total_points = parseInt(student.total_points || 0) + 1;
@@ -4694,7 +4683,7 @@ const checkWeeklyBonus = (student, todayStr) => {
       student_id: student.student_id,
       timestamp: new Date().toISOString(),
       points_changed: 1,
-      reason: `🎁 [주간 완수 보너스] 이번 주 출석 및 과제 100% 완수 보너스 (+1)`,
+      reason: `🎁 [주간 완수 보너스] 이번 주 누적 5일 출석체크 보너스 (+1)`,
       is_weekly_bonus: true
     };
     pointHistory.push(bonusItem);
@@ -4753,7 +4742,7 @@ const checkStudentAttendance = (studentId) => {
   
   if (gotBonus) {
     playAudioEffect('coin');
-    alert("🎉 오늘 출석 체크가 완료되었습니다!\n\n🎁 축하합니다! 이번 주 출석 및 과제를 100% 완수하여 주간 보너스 신용점수 1점이 추가 적립되었습니다!");
+    alert("🎉 오늘 출석 체크가 완료되었습니다!\n\n🎁 축하합니다! 이번 주 누적 5일 출석체크를 완료하여 주간 보너스 신용점수 1점이 추가 적립되었습니다!");
   } else {
     playAudioEffect('coin');
     alert("🎉 오늘 출석 체크가 완료되었습니다!");
