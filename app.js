@@ -4644,38 +4644,14 @@ const getWeekdaysOfCurrentWeek = (dateStr) => {
 };
 
 const checkWeeklyBonus = (student, todayStr) => {
-  const weekdays = getWeekdaysOfCurrentWeek(todayStr);
-  const weekId = weekdays[0]; // 월요일 날짜를 주 고유 ID로 사용
+  // 전체 누적 출석 일수 계산
+  const totalAttendedDays = Object.keys(student.attendance || {})
+    .filter(date => student.attendance[date] === true)
+    .length;
   
-  // 이미 이번 주 보너스를 받았는지 체크
-  student.weekly_bonus = student.weekly_bonus || {};
-  if (student.weekly_bonus[weekId]) {
-    return false;
-  }
-  
-  // 이번 주 전체 7일(월~일)의 출석 일수 계산
-  const fullWeekDays = [];
-  const d = parseLocalDate(todayStr);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // 월요일 날짜 구하기
-  const monday = new Date(d.setDate(diff));
-  for (let i = 0; i < 7; i++) {
-    const temp = new Date(monday);
-    temp.setDate(monday.getDate() + i);
-    fullWeekDays.push(formatLocalDate(temp));
-  }
-  
-  let attendanceCount = 0;
-  fullWeekDays.forEach(date => {
-    if (student.attendance && student.attendance[date] === true) {
-      attendanceCount++;
-    }
-  });
-  
-  // 연속 여부와 무관하게 이번 주에 누적 5일 이상 출석체크한 경우 보너스 지급
-  if (attendanceCount >= 5) {
+  // 누적 출석체크 횟수가 5의 배수(5, 10, 15, 20...)일 때 보너스 지급
+  if (totalAttendedDays > 0 && totalAttendedDays % 5 === 0) {
     // 보너스 점수 지급 (+1점)
-    student.weekly_bonus[weekId] = true;
     student.total_points = parseInt(student.total_points || 0) + 1;
     
     // 이력 등록
@@ -4683,8 +4659,8 @@ const checkWeeklyBonus = (student, todayStr) => {
       student_id: student.student_id,
       timestamp: new Date().toISOString(),
       points_changed: 1,
-      reason: `🎁 [주간 완수 보너스] 이번 주 누적 5일 출석체크 보너스 (+1)`,
-      is_weekly_bonus: true
+      reason: `🎁 [출석 누적 보너스] 누적 ${totalAttendedDays}일 출석체크 보너스 (+1)`,
+      is_weekly_bonus: true // 기존 롤백 시스템 호환성을 위해 유지
     };
     pointHistory.push(bonusItem);
     return true;
@@ -4717,8 +4693,6 @@ const checkStudentAttendance = (studentId) => {
       const updates = {};
       updates[`students/${studentIdx}/attendance/${todayStr}`] = true;
       if (gotBonus) {
-        const weekId = getWeekdaysOfCurrentWeek(todayStr)[0];
-        updates[`students/${studentIdx}/weekly_bonus/${weekId}`] = true;
         updates[`students/${studentIdx}/total_points`] = student.total_points;
         
         const newLogIdx = pointHistory.length - 1;
@@ -4741,8 +4715,11 @@ const checkStudentAttendance = (studentId) => {
   }
   
   if (gotBonus) {
+    const totalAttendedDays = Object.keys(student.attendance || {})
+      .filter(date => student.attendance[date] === true)
+      .length;
     playAudioEffect('coin');
-    alert("🎉 오늘 출석 체크가 완료되었습니다!\n\n🎁 축하합니다! 이번 주 누적 5일 출석체크를 완료하여 주간 보너스 신용점수 1점이 추가 적립되었습니다!");
+    alert(`🎉 오늘 출석 체크가 완료되었습니다!\n\n🎁 축하합니다! 누적 ${totalAttendedDays}일 출석체크를 완료하여 보너스 신용점수 1점이 추가 적립되었습니다!`);
   } else {
     playAudioEffect('coin');
     alert("🎉 오늘 출석 체크가 완료되었습니다!");
