@@ -3230,9 +3230,6 @@ const renderRosterPointsManager = () => {
 
   // 학번 기준 정렬 (글로벌 배열 순서를 변경하지 않도록 얕은 복사 후 정렬)
   const sortedStudents = [...students].sort((a, b) => a.student_id.localeCompare(b.student_id));
-  
-  const todayStr = getTodayDateString();
-  const todayTasks = dailyAssignments[todayStr] || [];
 
   sortedStudents.forEach(student => {
     const grade = evaluateGrade(student.total_points);
@@ -3258,17 +3255,25 @@ const renderRosterPointsManager = () => {
       ? `<span class="helper-badge">도우미</span>` 
       : "";
 
-    // 오늘 과제 제출 유무 확인
-    const studentLog = (dailyLogs[todayStr] || {})[student.student_id] || {};
+    // 누적 과제 제출 유무 확인 (전체 기간 누적 미제출 집계)
     let unsubmittedCount = 0;
-    todayTasks.forEach(task => {
-      if (studentLog[task.id] !== true) {
-        unsubmittedCount++;
-      }
+    let totalAssignedTasksCount = 0;
+
+    Object.keys(dailyAssignments || {}).forEach(dateKey => {
+      const tasksForDay = dailyAssignments[dateKey] || [];
+      const dayLogs = dailyLogs[dateKey] || {};
+      const studentLog = dayLogs[student.student_id] || {};
+
+      tasksForDay.forEach(task => {
+        totalAssignedTasksCount++;
+        if (studentLog[task.id] !== true) {
+          unsubmittedCount++;
+        }
+      });
     });
 
     let submissionBadgeHtml = "";
-    if (todayTasks.length > 0) {
+    if (totalAssignedTasksCount > 0) {
       if (unsubmittedCount === 0) {
         card.classList.add('card-all-submitted');
         submissionBadgeHtml = `<span class="submission-badge submitted">제출 완료 🎉</span>`;
