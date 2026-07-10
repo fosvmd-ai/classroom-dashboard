@@ -3164,4 +3164,73 @@ button.btn-danger:hover {
   box-shadow: var(--shadow-sm);
 }
 
+/* Roster Card Submission States (Fluorescent green/red) */
+.roster-student-card.card-all-submitted {
+  background: rgba(16, 185, 129, 0.08);
+  border: 2px solid #10b981 !important;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.15);
+}
+
+.dark-theme .roster-student-card.card-all-submitted {
+  background: rgba(16, 185, 129, 0.15);
+  border: 2px solid #34d399 !important;
+}
+
+.roster-student-card.card-has-unsubmitted {
+  background: rgba(239, 68, 68, 0.08);
+  border: 2px solid #ef4444 !important;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.15);
+}
+
+.dark-theme .roster-student-card.card-has-unsubmitted {
+  background: rgba(239, 68, 68, 0.15);
+  border: 2px solid #f87171 !important;
+}
+
+/* Submission Badges styling */
+.submission-badge {
+  font-size: 11px;
+  font-weight: bold;
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  display: inline-block;
+  box-shadow: var(--shadow-sm);
+}
+
+.submission-badge.submitted {
+  background: #e6f4ea;
+  color: #137333;
+  border: 1px solid rgba(19, 115, 51, 0.2);
+}
+
+.submission-badge.unsubmitted {
+  background: #fce8e6;
+  color: #c5221f;
+  border: 1px solid rgba(197, 34, 31, 0.2);
+}
+
+.submission-badge.no-tasks {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}
+
+.dark-theme .submission-badge.submitted {
+  background: rgba(52, 211, 153, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.3);
+}
+
+.dark-theme .submission-badge.unsubmitted {
+  background: rgba(248, 113, 113, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.3);
+}
+
+.dark-theme .submission-badge.no-tasks {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 

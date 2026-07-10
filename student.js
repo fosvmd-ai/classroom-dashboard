@@ -2391,6 +2391,16 @@ const renderStudentPortal = (studentId) => {
     }
   }
 
+  // 전체 누적 출석 일수 및 5일 주기 보너스 게이지 계산
+  const totalAttendedDays = Object.keys(student.attendance || {})
+    .filter(date => student.attendance[date] === true)
+    .length;
+  const cycleDays = totalAttendedDays % 5;
+  const cycleDaysEl = document.getElementById('portal-attendance-cycle-days');
+  if (cycleDaysEl) {
+    cycleDaysEl.innerText = cycleDays;
+  }
+
   const grade = evaluateGrade(student.total_points);
   document.getElementById('portal-grade-name').innerText = grade.name;
 

@@ -3230,16 +3230,21 @@ const renderRosterPointsManager = () => {
 
   // 학번 기준 정렬 (글로벌 배열 순서를 변경하지 않도록 얕은 복사 후 정렬)
   const sortedStudents = [...students].sort((a, b) => a.student_id.localeCompare(b.student_id));
+  
+  const todayStr = getTodayDateString();
+  const todayTasks = dailyAssignments[todayStr] || [];
 
   sortedStudents.forEach(student => {
     const grade = evaluateGrade(student.total_points);
     
-    // 등급 아이콘 이미지 여부
-    let gradeIconHtml = "";
+    // 등급 아이콘 이미지/이모지 대형화 (멀리서도 식별이 쉽도록)
+    let largeGradeIconHtml = "";
     if (grade.icon) {
-      gradeIconHtml = `<img src="${grade.icon}" alt="${grade.name}" style="width:16px; height:16px; border-radius:3px; vertical-align:middle; margin-right:4px;">`;
+      largeGradeIconHtml = `<img src="${grade.icon}" alt="${grade.name}" style="width:48px; height:48px; border-radius:8px; display:block; margin:8px auto; object-fit:cover; box-shadow:var(--shadow-sm);">`;
+    } else {
+      largeGradeIconHtml = `<span style="font-size:36px; display:block; margin:8px auto; text-align:center;">${grade.emoji || '🌱'}</span>`;
     }
-    const gradeText = `${grade.emoji || '🌱'} ${grade.name}`;
+    const gradeText = `${grade.name}`;
 
     const card = document.createElement('div');
     card.className = 'roster-student-card';
@@ -3253,15 +3258,37 @@ const renderRosterPointsManager = () => {
       ? `<span class="helper-badge">도우미</span>` 
       : "";
 
+    // 오늘 과제 제출 유무 확인
+    const studentLog = (dailyLogs[todayStr] || {})[student.student_id] || {};
+    let unsubmittedCount = 0;
+    todayTasks.forEach(task => {
+      if (studentLog[task.id] !== true) {
+        unsubmittedCount++;
+      }
+    });
+
+    let submissionBadgeHtml = "";
+    if (todayTasks.length > 0) {
+      if (unsubmittedCount === 0) {
+        card.classList.add('card-all-submitted');
+        submissionBadgeHtml = `<span class="submission-badge submitted">제출 완료 🎉</span>`;
+      } else {
+        card.classList.add('card-has-unsubmitted');
+        submissionBadgeHtml = `<span class="submission-badge unsubmitted">미제출 ${unsubmittedCount}개</span>`;
+      }
+    } else {
+      submissionBadgeHtml = `<span class="submission-badge no-tasks">과제 없음</span>`;
+    }
+
     card.innerHTML = `
       <input type="checkbox" class="card-select-checkbox" data-student-id="${student.student_id}" onchange="updateRosterSelectAllState()" onclick="event.stopPropagation()" style="width: 18px; height: 18px; cursor: pointer;">
       ${helperBadgeHtml}
       <span class="student-id-badge">${student.student_id}번</span>
       <div class="student-name">${student.name}</div>
+      ${largeGradeIconHtml}
+      <div class="student-grade-badge" style="margin-top:4px;">${gradeText}</div>
       <div class="student-points">${student.total_points}점</div>
-      <div class="student-grade-badge">
-        ${gradeIconHtml}${gradeText}
-      </div>
+      <div style="margin-top:8px;">${submissionBadgeHtml}</div>
     `;
     cardsContainer.appendChild(card);
   });
@@ -4531,6 +4558,16 @@ const renderStudentPortal = (studentId) => {
       attendStatus.classList.add('hidden');
       attendBtn.setAttribute('onclick', `checkStudentAttendance('${student.student_id}')`);
     }
+  }
+
+  // 전체 누적 출석 일수 및 5일 주기 보너스 게이지 계산
+  const totalAttendedDays = Object.keys(student.attendance || {})
+    .filter(date => student.attendance[date] === true)
+    .length;
+  const cycleDays = totalAttendedDays % 5;
+  const cycleDaysEl = document.getElementById('portal-attendance-cycle-days');
+  if (cycleDaysEl) {
+    cycleDaysEl.innerText = cycleDays;
   }
 
   const grade = evaluateGrade(student.total_points);
