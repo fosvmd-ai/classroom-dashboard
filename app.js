@@ -3045,12 +3045,181 @@ const toggleTaskInTableDynamic = (studentId, taskId, points, taskName, isChecked
 // ==========================================================================
 
 // 7-1. 학생 수동 점수 수정 화면 렌더링
+let selectedStudentIdForModal = null;
+
+const openStudentAdjustModal = (studentId) => {
+  const student = students.find(s => s.student_id === studentId);
+  if (!student) return;
+  
+  selectedStudentIdForModal = studentId;
+  const grade = evaluateGrade(student.total_points);
+  
+  // 모달 타이틀 및 내용 업데이트
+  const titleEl = document.getElementById('adjust-modal-title');
+  if (titleEl) {
+    titleEl.innerText = `👤 [${student.student_id}번] ${student.name} 점수 직접 수정`;
+  }
+  
+  // 등급 아이콘 표시
+  const iconContainer = document.getElementById('adjust-modal-grade-icon-container');
+  if (iconContainer) {
+    if (grade.icon) {
+      iconContainer.innerHTML = `<img src="${grade.icon}" alt="${grade.name}" style="width:40px; height:40px; border-radius:6px; display:block;">`;
+    } else {
+      iconContainer.innerHTML = `<span style="font-size:32px;">${grade.emoji || '🌱'}</span>`;
+    }
+  }
+  
+  const infoEl = document.getElementById('adjust-modal-student-info');
+  if (infoEl) {
+    infoEl.innerText = `${student.name} (${grade.name})`;
+  }
+  
+  const pointsEl = document.getElementById('adjust-modal-student-points');
+  if (pointsEl) {
+    pointsEl.innerText = `현재 신용점수: ${student.total_points}점`;
+  }
+  
+  // 입력 필드 초기화
+  const reasonInput = document.getElementById('adjust-reason-input');
+  if (reasonInput) reasonInput.value = '';
+  
+  const directInput = document.getElementById('adjust-points-direct');
+  if (directInput) directInput.value = student.total_points;
+  
+  // 도우미 여부 체크박스 설정
+  const authCheckbox = document.getElementById('adjust-task-auth-checkbox');
+  if (authCheckbox) {
+    authCheckbox.checked = student.can_manage_tasks === true;
+    authCheckbox.onchange = (e) => toggleStudentTaskAuth(studentId, e.target.checked);
+  }
+  
+  // 수첩 바로가기 버튼 설정
+  const viewPortalBtn = document.getElementById('adjust-view-portal-btn');
+  if (viewPortalBtn) {
+    viewPortalBtn.onclick = () => {
+      closeStudentAdjustModal();
+      viewStudentPortalFromTeacher(studentId);
+    };
+  }
+  
+  // 모달 표시
+  const modal = document.getElementById('student-adjust-modal');
+  if (modal) modal.classList.remove('hidden');
+};
+
+const closeStudentAdjustModal = () => {
+  const modal = document.getElementById('student-adjust-modal');
+  if (modal) modal.classList.add('hidden');
+  selectedStudentIdForModal = null;
+};
+
+const adjustStudentPoints = (amount) => {
+  if (!selectedStudentIdForModal) return;
+  
+  const student = students.find(s => s.student_id === selectedStudentIdForModal);
+  if (!student) return;
+  
+  const reasonInput = document.getElementById('adjust-reason-input');
+  const reason = (reasonInput && reasonInput.value.trim()) || `수동 수정 (${amount > 0 ? '+' : ''}${amount})`;
+  
+  const oldPoints = student.total_points || 0;
+  const newPoints = Math.max(0, oldPoints + amount);
+  const delta = newPoints - oldPoints;
+  
+  if (delta !== 0) {
+    student.total_points = newPoints;
+    pointHistory.push({
+      student_id: selectedStudentIdForModal,
+      timestamp: new Date().toISOString(),
+      points_changed: delta,
+      reason: reason
+    });
+    
+    saveData();
+    playAudioEffect(amount > 0 ? 'coin' : 'buzz');
+    
+    // UI 업데이트
+    renderRosterPointsManager();
+    renderTeacherDashboard();
+    
+    // 모달 표시 데이터 갱신
+    const pointsEl = document.getElementById('adjust-modal-student-points');
+    if (pointsEl) {
+      pointsEl.innerText = `현재 신용점수: ${student.total_points}점`;
+    }
+    const directInput = document.getElementById('adjust-points-direct');
+    if (directInput) {
+      directInput.value = student.total_points;
+    }
+    if (reasonInput) reasonInput.value = ''; // 사유 입력 필드 비우기
+  }
+};
+
+const setStudentPointsDirect = () => {
+  if (!selectedStudentIdForModal) return;
+  
+  const student = students.find(s => s.student_id === selectedStudentIdForModal);
+  if (!student) return;
+  
+  const input = document.getElementById('adjust-points-direct');
+  if (!input) return;
+  const newPoints = parseInt(input.value);
+  
+  if (isNaN(newPoints) || newPoints < 0) {
+    alert("❌ 올바른 점수(0 이상)를 입력해 주세요.");
+    return;
+  }
+  
+  const oldPoints = student.total_points || 0;
+  const delta = newPoints - oldPoints;
+  
+  if (delta !== 0) {
+    const reasonInput = document.getElementById('adjust-reason-input');
+    const reason = (reasonInput && reasonInput.value.trim()) || `수동 수정 직접 설정 (${newPoints}점)`;
+    
+    student.total_points = newPoints;
+    pointHistory.push({
+      student_id: selectedStudentIdForModal,
+      timestamp: new Date().toISOString(),
+      points_changed: delta,
+      reason: reason
+    });
+    
+    saveData();
+    playAudioEffect(delta > 0 ? 'coin' : 'buzz');
+    
+    // UI 업데이트
+    renderRosterPointsManager();
+    renderTeacherDashboard();
+    
+    // 모달 표시 데이터 갱신
+    const pointsEl = document.getElementById('adjust-modal-student-points');
+    if (pointsEl) {
+      pointsEl.innerText = `현재 신용점수: ${student.total_points}점`;
+    }
+    if (reasonInput) reasonInput.value = '';
+    alert("💾 점수가 성공적으로 설정되었습니다.");
+  }
+};
+
+const openHistoryDatabaseModal = () => {
+  const modal = document.getElementById('history-database-modal');
+  if (modal) modal.classList.remove('hidden');
+  renderPointHistoryDatabase();
+};
+
+const closeHistoryDatabaseModal = () => {
+  const modal = document.getElementById('history-database-modal');
+  if (modal) modal.classList.add('hidden');
+};
+
 const renderRosterPointsManager = () => {
   populateRosterGradeFilter();
   
-  const tableBody = document.getElementById('roster-points-table-body');
-  if (!tableBody) return;
-  tableBody.innerHTML = '';
+  const cardsContainer = document.getElementById('roster-cards-container');
+  if (!cardsContainer) return;
+  cardsContainer.innerHTML = '';
 
   // 전체 선택 체크박스 초기화
   const selectAllCheckbox = document.getElementById('roster-select-all');
@@ -3064,48 +3233,37 @@ const renderRosterPointsManager = () => {
 
   sortedStudents.forEach(student => {
     const grade = evaluateGrade(student.total_points);
-    const tr = document.createElement('tr');
-    tr.dataset.studentId = student.student_id;
-    tr.dataset.studentName = student.name;
-    tr.dataset.gradeMinPoints = grade.min_points;
-
+    
     // 등급 아이콘 이미지 여부
     let gradeIconHtml = "";
     if (grade.icon) {
-      gradeIconHtml = `<img src="${grade.icon}" alt="${grade.name}" style="width:20px; height:20px; border-radius:4px; vertical-align:middle; margin-right:4px;">`;
+      gradeIconHtml = `<img src="${grade.icon}" alt="${grade.name}" style="width:16px; height:16px; border-radius:3px; vertical-align:middle; margin-right:4px;">`;
     }
     const gradeText = `${grade.emoji || '🌱'} ${grade.name}`;
 
-    tr.innerHTML = `
-      <td>
-        <input type="checkbox" class="roster-select-student" data-student-id="${student.student_id}" onchange="updateRosterSelectAllState()" style="width: 16px; height: 16px; cursor: pointer;">
-      </td>
-      <td>${student.student_id}</td>
-      <td style="font-weight:bold; color:var(--text-main);">${student.name}</td>
-      <td>
-        <span class="grade-badge-roster" style="font-size:12px; font-weight:bold; padding:4px 8px; border-radius:12px; background:rgba(99, 102, 241, 0.08); color:#4f46e5; border:1px solid rgba(99, 102, 241, 0.15); display:inline-flex; align-items:center;">
-          ${gradeIconHtml}${gradeText}
-        </span>
-      </td>
-      <td style="color:#4f46e5; font-weight:bold; font-size:15px;">${student.total_points}점</td>
-      <td>
-        <div style="display:flex; justify-content:center; align-items:center; gap:6px;">
-          <button class="btn-danger" style="padding: 4px 10px; font-size: 13px; font-weight: bold; border-radius: var(--radius-sm);" onclick="adjustPointsInline('${student.student_id}', -1)">-1</button>
-          <input type="number" class="roster-point-edit-input" data-student-id="${student.student_id}" value="${student.total_points}" style="width:70px; text-align:center; margin: 0; padding:6px; font-size:13px;">
-          <button class="btn-success" style="padding: 4px 10px; font-size: 13px; font-weight: bold; border-radius: var(--radius-sm);" onclick="adjustPointsInline('${student.student_id}', 1)">+1</button>
-        </div>
-      </td>
-      <td>
-        <input type="text" class="roster-point-reason-input" data-student-id="${student.student_id}" placeholder="(선택 사항) 예: 발표 우수, 준비물 미지참 등" style="text-align:left; font-size:13px; padding:6px 10px; width:100%;">
-      </td>
-      <td style="text-align:center;">
-        <input type="checkbox" class="roster-task-auth-checkbox" data-student-id="${student.student_id}" ${student.can_manage_tasks === true ? 'checked' : ''} onchange="toggleStudentTaskAuth('${student.student_id}', this.checked)" style="width: 18px; height: 18px; cursor: pointer; transform: scale(1.1); vertical-align: middle;">
-      </td>
-      <td>
-        <button class="btn-primary" style="padding: 6px 12px; font-size:13px; font-weight:bold; border-radius:var(--radius-sm); background-color:#2563eb; border-color:#2563eb;" onclick="viewStudentPortalFromTeacher('${student.student_id}')">🔍 조회</button>
-      </td>
+    const card = document.createElement('div');
+    card.className = 'roster-student-card';
+    card.dataset.studentId = student.student_id;
+    card.dataset.studentName = student.name;
+    card.dataset.gradeMinPoints = grade.min_points;
+    card.onclick = () => openStudentAdjustModal(student.student_id);
+
+    // 도우미 뱃지 여부
+    const helperBadgeHtml = student.can_manage_tasks === true 
+      ? `<span class="helper-badge">도우미</span>` 
+      : "";
+
+    card.innerHTML = `
+      <input type="checkbox" class="card-select-checkbox" data-student-id="${student.student_id}" onchange="updateRosterSelectAllState()" onclick="event.stopPropagation()" style="width: 18px; height: 18px; cursor: pointer;">
+      ${helperBadgeHtml}
+      <span class="student-id-badge">${student.student_id}번</span>
+      <div class="student-name">${student.name}</div>
+      <div class="student-points">${student.total_points}점</div>
+      <div class="student-grade-badge">
+        ${gradeIconHtml}${gradeText}
+      </div>
     `;
-    tableBody.appendChild(tr);
+    cardsContainer.appendChild(card);
   });
   
   // 검색 및 필터 상태 반영
@@ -3352,10 +3510,10 @@ const populateRosterGradeFilter = () => {
 
 // 7-1-D. 체크박스 전체 선택/해제
 const toggleRosterSelectAll = (checked) => {
-  const rows = document.querySelectorAll('#roster-points-table-body tr');
-  rows.forEach(row => {
-    if (row.style.display !== 'none') {
-      const cb = row.querySelector('.roster-select-student');
+  const cards = document.querySelectorAll('#roster-cards-container .roster-student-card');
+  cards.forEach(card => {
+    if (card.style.display !== 'none') {
+      const cb = card.querySelector('.card-select-checkbox');
       if (cb) cb.checked = checked;
     }
   });
@@ -3366,9 +3524,9 @@ const updateRosterSelectAllState = () => {
   const selectAll = document.getElementById('roster-select-all');
   if (!selectAll) return;
   
-  const visibleCbs = Array.from(document.querySelectorAll('#roster-points-table-body tr'))
-    .filter(row => row.style.display !== 'none')
-    .map(row => row.querySelector('.roster-select-student'))
+  const visibleCbs = Array.from(document.querySelectorAll('#roster-cards-container .roster-student-card'))
+    .filter(card => card.style.display !== 'none')
+    .map(card => card.querySelector('.card-select-checkbox'))
     .filter(Boolean);
     
   if (visibleCbs.length === 0) {
@@ -3400,21 +3558,21 @@ const filterRosterList = () => {
   const query = searchInput ? searchInput.value.trim().toLowerCase() : "";
   const filterVal = gradeFilter ? gradeFilter.value : "all";
   
-  const rows = document.querySelectorAll('#roster-points-table-body tr');
-  rows.forEach(row => {
-    const studentId = row.dataset.studentId || "";
-    const name = row.dataset.studentName ? row.dataset.studentName.toLowerCase() : "";
-    const gradeMinPoints = parseInt(row.dataset.gradeMinPoints) || 0;
+  const cards = document.querySelectorAll('#roster-cards-container .roster-student-card');
+  cards.forEach(card => {
+    const studentId = card.dataset.studentId || "";
+    const name = card.dataset.studentName ? card.dataset.studentName.toLowerCase() : "";
+    const gradeMinPoints = parseInt(card.dataset.gradeMinPoints) || 0;
     
     const matchesSearch = studentId.includes(query) || name.includes(query);
     const matchesGrade = (filterVal === "all") || (parseInt(filterVal) === gradeMinPoints);
     
     if (matchesSearch && matchesGrade) {
-      row.style.display = '';
+      card.style.display = '';
     } else {
-      row.style.display = 'none';
-      // 숨겨진 행의 체크박스는 선택 해제 처리하여 일괄 작업 실수 방지
-      const cb = row.querySelector('.roster-select-student');
+      card.style.display = 'none';
+      // 숨겨진 카드의 체크박스는 선택 해제 처리하여 일괄 작업 실수 방지
+      const cb = card.querySelector('.card-select-checkbox');
       if (cb) cb.checked = false;
     }
   });
@@ -3432,90 +3590,55 @@ const setBatchTemplate = (reason, points) => {
   applyBatchPoints(points);
 };
 
-// 7-1-H. 선택된 학생들에게 일괄 점수/사유 가감 적용
+// 7-1-H. 선택된 학생들에게 일괄 점수/사유 가감 적용 (즉시 저장)
 const applyBatchPoints = (delta) => {
-  const checkboxes = document.querySelectorAll('.roster-select-student:checked');
+  const checkboxes = document.querySelectorAll('.card-select-checkbox:checked');
   if (checkboxes.length === 0) {
-    alert("❌ 점수를 가감할 학생을 먼저 선택해 주세요 (체크박스 선택).");
+    alert("❌ 점수를 일괄 가감할 학생을 먼저 선택해 주세요 (카드 좌측 상단 체크박스 선택).");
     return;
   }
   
   const batchReasonInput = document.getElementById('batch-reason-input');
   const reasonText = batchReasonInput ? batchReasonInput.value.trim() : "";
+  const reason = reasonText || `일괄 수정 (${delta > 0 ? '+' : ''}${delta})`;
+  
+  const nowStr = new Date().toISOString();
+  let changedCount = 0;
   
   checkboxes.forEach(cb => {
     const studentId = cb.dataset.studentId;
-    const input = document.querySelector(`.roster-point-edit-input[data-student-id="${studentId}"]`);
-    const reasonInput = document.querySelector(`.roster-point-reason-input[data-student-id="${studentId}"]`);
-    
-    if (input) {
-      const val = parseInt(input.value) || 0;
-      input.value = Math.max(0, val + delta);
-      
-      // 하이라이트 플래시 효과
-      input.style.backgroundColor = delta > 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
-      setTimeout(() => { input.style.backgroundColor = ''; }, 1000);
-    }
-    
-    if (reasonInput && reasonText) {
-      reasonInput.value = reasonText;
-      reasonInput.style.backgroundColor = 'rgba(99, 102, 241, 0.1)';
-      setTimeout(() => { reasonInput.style.backgroundColor = ''; }, 1000);
-    }
-  });
-  
-  playAudioEffect(delta > 0 ? 'coin' : 'buzz');
-};
-
-// 7-2. 수동 점수 일괄 저장 처리
-const saveRosterPoints = () => {
-  const editInputs = document.querySelectorAll('.roster-point-edit-input');
-  
-  let changedCount = 0;
-  const nowStr = new Date().toISOString();
-
-  editInputs.forEach((input) => {
-    const studentId = input.dataset.studentId;
-    const newPoints = parseInt(input.value);
-    
-    if (isNaN(newPoints) || newPoints < 0) {
-      return;
-    }
-
     const student = students.find(s => s.student_id === studentId);
     if (student) {
       const oldPoints = student.total_points || 0;
+      const newPoints = Math.max(0, oldPoints + delta);
       if (oldPoints !== newPoints) {
-        const delta = newPoints - oldPoints;
         student.total_points = newPoints;
-        
-        // 학번에 매칭되는 사유 값 가져오기 (DOM 인덱스 독립적 매칭)
-        const reasonInput = document.querySelector(`.roster-point-reason-input[data-student-id="${studentId}"]`);
-        const reason = (reasonInput && reasonInput.value.trim()) 
-          ? reasonInput.value.trim() 
-          : "수동 수정";
-
         pointHistory.push({
           student_id: studentId,
           timestamp: nowStr,
           points_changed: delta,
           reason: reason
         });
-        
         changedCount++;
       }
     }
   });
-
+  
   if (changedCount > 0) {
     saveData();
-    playAudioEffect('chime');
+    playAudioEffect(delta > 0 ? 'coin' : 'buzz');
     renderRosterPointsManager();
     renderTeacherDashboard();
-    alert(`💾 총 ${changedCount}명의 학생 점수가 수정 및 저장되었습니다!`);
+    alert(`⚡ 선택한 ${changedCount}명의 학생 점수가 성공적으로 일괄 반영되었습니다.`);
   } else {
-    alert("변경된 점수가 없습니다.");
+    playAudioEffect('buzz');
   }
+};
+
+// 7-2. 수동 점수 일괄 저장 처리
+const saveRosterPoints = () => {
+  saveData(true);
+  alert("💾 모든 학생 점수와 상태가 안전하게 저장/동기화되었습니다.");
 };
 
 // 7-3. 명단 상세 수정 모달 제어
@@ -5799,6 +5922,12 @@ window.renderRosterPointsManager = renderRosterPointsManager;
 window.saveRosterPoints = saveRosterPoints;
 window.openRosterDetailModal = openRosterDetailModal;
 window.closeRosterDetailModal = closeRosterDetailModal;
+window.openStudentAdjustModal = openStudentAdjustModal;
+window.closeStudentAdjustModal = closeStudentAdjustModal;
+window.adjustStudentPoints = adjustStudentPoints;
+window.setStudentPointsDirect = setStudentPointsDirect;
+window.openHistoryDatabaseModal = openHistoryDatabaseModal;
+window.closeHistoryDatabaseModal = closeHistoryDatabaseModal;
 window.adjustPointsInline = adjustPointsInline;
 window.adjustTaskPoints = adjustTaskPoints;
 // @TEACHER_ONLY_END

@@ -3065,4 +3065,103 @@ button.btn-danger:hover {
   margin: 0;
 }
 
+/* ==========================================================================
+   Roster Cards Grid & Card Styles
+   ========================================================================== */
+.roster-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+  margin-bottom: 20px;
+}
+
+.roster-student-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 20px 16px;
+  position: relative;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.roster-student-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--primary-color);
+}
+
+.roster-student-card .card-select-checkbox {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  z-index: 2;
+  margin: 0;
+}
+
+.roster-student-card .student-id-badge {
+  font-size: 11px;
+  font-weight: bold;
+  color: var(--text-muted);
+  background: rgba(0, 0, 0, 0.05);
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  margin-bottom: 8px;
+}
+
+.dark-theme .roster-student-card .student-id-badge {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.roster-student-card .student-name {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-main);
+  margin: 6px 0;
+}
+
+.roster-student-card .student-points {
+  font-size: 22px;
+  font-weight: 900;
+  color: #4f46e5;
+  margin: 4px 0;
+}
+
+.roster-student-card .student-grade-badge {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  background: rgba(99, 102, 241, 0.08);
+  color: #4f46e5;
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.roster-student-card .helper-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: #f59e0b;
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 3px 6px;
+  border-radius: 4px;
+  box-shadow: var(--shadow-sm);
+}
+
 

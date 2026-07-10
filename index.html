@@ -44,7 +44,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Outfit:wght@300;400;500;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=1.0.29">
+  <link rel="stylesheet" href="style.css?v=1.0.30">
   <!-- Google Identity Services (GIS) SDK -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- Firebase JS SDK - async 병렬 로드 + 차단 감지 -->
@@ -399,6 +399,7 @@
         <div class="panel-actions">
           <button class="btn-primary" onclick="openRosterBulkModal()">📋 명단 일괄 등록/수정</button>
           <button class="btn-secondary" onclick="openRosterDetailModal()">⚙️ 명단 상세 수정 (추가/삭제)</button>
+          <button class="btn-warning" onclick="openHistoryDatabaseModal()" style="background-color: #f59e0b; border-color: #f59e0b;">📈 전체 점수 변동 내역</button>
           <button class="btn-success" onclick="saveRosterPoints()">💾 점수 저장하기</button>
         </div>
       </div>
@@ -451,76 +452,15 @@
         </div>
       </div>
 
-      <div class="table-responsive">
-        <table class="admin-table">
-          <thead>
-            <tr>
-              <th width="40px"><input type="checkbox" id="roster-select-all" onclick="toggleRosterSelectAll(this.checked)" style="width: 16px; height: 16px; cursor: pointer;"></th>
-              <th width="80px">번호</th>
-              <th width="120px">이름</th>
-              <th width="150px">신용등급</th>
-              <th width="140px">현재 누적 점수</th>
-              <th width="180px">수정할 점수 (직접 입력)</th>
-              <th>점수 변동 사유 (기록용)</th>
-              <th width="100px">과제 권한</th>
-              <th width="100px">개인 수첩</th>
-            </tr>
-          </thead>
-          <tbody id="roster-points-table-body">
-            <!-- JS 동적 생성 (점수 관리 테이블) -->
-          </tbody>
-        </table>
+      <!-- [NEW] 카드 뷰 레이아웃 -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+        <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:bold; color:var(--text-main); cursor:pointer;">
+          <input type="checkbox" id="roster-select-all" onclick="toggleRosterSelectAll(this.checked)" style="width: 16px; height: 16px; cursor: pointer;">
+          전체 학생 선택 (일괄 변동 대상)
+        </label>
       </div>
-
-      <!-- 📈 전체 학생 점수 변동 내역 조회 (데이터베이스) -->
-      <div class="panel-card" style="margin-top: 40px; padding: 24px; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-card); box-shadow: var(--shadow-sm);">
-        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 15px; border-bottom: 2px solid var(--border-color); padding-bottom: 12px;">
-          <h3 style="font-size: 16px; font-weight: 800; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 8px;">
-            📈 전체 학생 점수 변동 내역 (데이터베이스)
-          </h3>
-          <div style="font-size: 13px; font-weight: bold; color: var(--text-muted);">
-            총 <span id="history-total-count" style="color: #4f46e5;">0</span>건의 내역
-          </div>
-        </div>
-        
-        <!-- 검색 및 필터 컨트롤 행 -->
-        <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center; margin-bottom: 20px; padding: 15px; border-radius: var(--radius-sm); background: rgba(0,0,0,0.01); border: 1px solid var(--border-color);">
-          <div style="display: flex; gap: 8px; align-items: center; flex: 1; min-width: 200px;">
-            <label style="font-weight: bold; color: var(--text-muted); font-size: 13px; white-space: nowrap;">👤 학생 이름/번호:</label>
-            <input type="text" id="history-search-student" oninput="filterPointHistoryTable()" placeholder="이름 또는 학번 입력..." style="width: 100%; padding: 8px 12px; font-size: 13px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); outline: none; background: var(--bg-card); color: var(--text-main);">
-          </div>
-          <div style="display: flex; gap: 8px; align-items: center; flex: 1; min-width: 200px;">
-            <label style="font-weight: bold; color: var(--text-muted); font-size: 13px; white-space: nowrap;">📝 변동 사유:</label>
-            <input type="text" id="history-search-reason" oninput="filterPointHistoryTable()" placeholder="변동 사유 검색..." style="width: 100%; padding: 8px 12px; font-size: 13px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); outline: none; background: var(--bg-card); color: var(--text-main);">
-          </div>
-          <div style="display: flex; gap: 8px; align-items: center; min-width: 150px;">
-            <label style="font-weight: bold; color: var(--text-muted); font-size: 13px; white-space: nowrap;">⚡ 변동 유형:</label>
-            <select id="history-filter-type" onchange="filterPointHistoryTable()" style="padding: 8px 12px; font-size: 13px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); outline: none; background: var(--bg-card); color: var(--text-main); font-weight: bold;">
-              <option value="all">전체 내역</option>
-              <option value="positive">➕ 플러스 점수</option>
-              <option value="negative">➖ 마이너스 점수</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- 데이터 테이블 -->
-        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-          <table class="admin-table" style="font-size: 13px;">
-            <thead>
-              <tr style="position: sticky; top: 0; background: var(--bg-card); z-index: 10;">
-                <th width="140px">일시</th>
-                <th width="80px">번호</th>
-                <th width="100px">이름</th>
-                <th width="100px">변동 점수</th>
-                <th>점수 변동 사유</th>
-                <th width="80px">조작</th>
-              </tr>
-            </thead>
-            <tbody id="history-database-table-body">
-              <!-- JS 동적 생성 -->
-            </tbody>
-          </table>
-        </div>
+      <div id="roster-cards-container" class="roster-cards-grid">
+        <!-- JS 동적 생성 (카드뷰) -->
       </div>
     </div>
 
@@ -1245,6 +1185,118 @@
     </div>
   </div>
 
+  <!-- 학생 점수 개별 수정 모달창 -->
+  <div id="student-adjust-modal" class="modal hidden">
+    <div class="modal-overlay" onclick="closeStudentAdjustModal()"></div>
+    <div class="modal-content" style="width: 480px;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #4f46e5, #3730a3);">
+        <h2 id="adjust-modal-title">👤 학생 점수 직접 수정</h2>
+        <button class="close-btn" onclick="closeStudentAdjustModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="flex-direction: column; padding: 20px; gap: 16px;">
+        <!-- 학생 기본 정보 표시 -->
+        <div style="display:flex; align-items:center; gap:12px; padding:12px; background:rgba(99, 102, 241, 0.05); border-radius:8px; border:1px solid rgba(99, 102, 241, 0.1);">
+          <div id="adjust-modal-grade-icon-container" style="font-size:32px;"></div>
+          <div>
+            <div id="adjust-modal-student-info" style="font-size:16px; font-weight:bold; color:var(--text-main);"></div>
+            <div id="adjust-modal-student-points" style="font-size:14px; color:#4f46e5; font-weight:800;"></div>
+          </div>
+        </div>
+        
+        <!-- 점수 가감 버튼 및 사유 입력 -->
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <label style="font-weight:bold; font-size:13px; color:var(--text-muted);">📝 점수 변동 사유</label>
+          <input type="text" id="adjust-reason-input" placeholder="사유를 입력하세요 (예: 발표 우수, 수업 태도 훌륭)" style="padding:10px; font-size:14px; border:1px solid var(--border-color); border-radius:8px; outline:none; background:var(--bg-card); color:var(--text-main);">
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <label style="font-weight:bold; font-size:13px; color:var(--text-muted);">⚡ 신용점수 변경</label>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn-success" onclick="adjustStudentPoints(1)" style="flex:1; padding:10px; font-weight:bold; border-radius:6px; cursor:pointer;">➕ 1점</button>
+            <button class="btn-success" onclick="adjustStudentPoints(3)" style="flex:1; padding:10px; font-weight:bold; background-color:#10b981; border-color:#10b981; border-radius:6px; cursor:pointer;">➕ 3점</button>
+            <button class="btn-danger" onclick="adjustStudentPoints(-1)" style="flex:1; padding:10px; font-weight:bold; border-radius:6px; cursor:pointer;">➖ 1점</button>
+            <button class="btn-danger" onclick="adjustStudentPoints(-3)" style="flex:1; padding:10px; font-weight:bold; background-color:#ef4444; border-color:#ef4444; border-radius:6px; cursor:pointer;">➖ 3점</button>
+          </div>
+          
+          <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+            <span style="font-size:13px; font-weight:bold; color:var(--text-muted);">직접 설정:</span>
+            <input type="number" id="adjust-points-direct" style="width:100px; padding:6px; font-size:13px; text-align:center; border:1px solid var(--border-color); border-radius:8px; outline:none; background:var(--bg-card); color:var(--text-main);">
+            <button class="btn-primary" onclick="setStudentPointsDirect()" style="padding:6px 12px; font-size:13px; font-weight:bold; border-radius:6px; cursor:pointer;">설정</button>
+          </div>
+        </div>
+        
+        <hr style="border:0; border-top:1px solid var(--border-color); margin:4px 0;">
+        
+        <!-- 추가 권한 및 링크 설정 -->
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:bold; color:var(--text-main); cursor:pointer;">
+            <input type="checkbox" id="adjust-task-auth-checkbox" style="width:18px; height:18px; cursor:pointer;">
+            과제 등록 권한 부여 (도우미)
+          </label>
+          <button class="btn-secondary" id="adjust-view-portal-btn" style="padding:6px 12px; font-size:13px; font-weight:bold; border-radius:6px; cursor:pointer;">🔍 개인 수첩 조회</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 전체 학생 점수 변동 내역 조회 모달창 -->
+  <div id="history-database-modal" class="modal hidden">
+    <div class="modal-overlay" onclick="closeHistoryDatabaseModal()"></div>
+    <div class="modal-content" style="width: 800px; max-width: 95%;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #1e293b, #334155);">
+        <h2>📈 전체 학생 점수 변동 내역 (데이터베이스)</h2>
+        <button class="close-btn" onclick="closeHistoryDatabaseModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="flex-direction: column; padding: 20px; gap: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">
+          <p class="panel-desc" style="margin: 0;">지정된 모든 신용점수 부여 이력을 실시간으로 조회하고 취소할 수 있습니다.</p>
+          <div style="font-size: 13px; font-weight: bold; color: var(--text-muted);">
+            총 <span id="history-total-count" style="color: #4f46e5;">0</span>건의 내역
+          </div>
+        </div>
+        
+        <!-- 검색 및 필터 컨트롤 행 -->
+        <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 12px; border-radius: var(--radius-sm); background: rgba(0,0,0,0.01); border: 1px solid var(--border-color);">
+          <div style="display: flex; gap: 6px; align-items: center; flex: 1; min-width: 180px;">
+            <label style="font-weight: bold; color: var(--text-muted); font-size: 12px; white-space: nowrap;">👤 학생:</label>
+            <input type="text" id="history-search-student" oninput="filterPointHistoryTable()" placeholder="이름 또는 학번..." style="width: 100%; padding: 6px 10px; font-size: 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); outline: none; background: var(--bg-card); color: var(--text-main); height: 32px;">
+          </div>
+          <div style="display: flex; gap: 6px; align-items: center; flex: 1; min-width: 180px;">
+            <label style="font-weight: bold; color: var(--text-muted); font-size: 12px; white-space: nowrap;">📝 사유:</label>
+            <input type="text" id="history-search-reason" oninput="filterPointHistoryTable()" placeholder="변동 사유 검색..." style="width: 100%; padding: 6px 10px; font-size: 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); outline: none; background: var(--bg-card); color: var(--text-main); height: 32px;">
+          </div>
+          <div style="display: flex; gap: 6px; align-items: center; min-width: 130px;">
+            <label style="font-weight: bold; color: var(--text-muted); font-size: 12px; white-space: nowrap;">⚡ 유형:</label>
+            <select id="history-filter-type" onchange="filterPointHistoryTable()" style="padding: 6px 10px; font-size: 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); outline: none; background: var(--bg-card); color: var(--text-main); font-weight: bold; height: 32px;">
+              <option value="all">전체 내역</option>
+              <option value="positive">➕ 플러스</option>
+              <option value="negative">➖ 마이너스</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 데이터 테이블 -->
+        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+          <table class="admin-table" style="font-size: 12px;">
+            <thead>
+              <tr style="position: sticky; top: 0; background: var(--bg-card); z-index: 10;">
+                <th width="140px">일시</th>
+                <th width="80px">번호</th>
+                <th width="100px">이름</th>
+                <th width="90px">변동 점수</th>
+                <th>점수 변동 사유</th>
+                <th width="80px">조작</th>
+              </tr>
+            </thead>
+            <tbody id="history-database-table-body">
+              <!-- JS 동적 생성 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 오색 폭죽용 전역 가상 캔버스 -->
   <canvas id="confetti-canvas"></canvas>
 
@@ -1285,7 +1337,7 @@
       var loadTeacherScript = isElectron || hash.startsWith('#teacher') || isTeacherPending || (isTeacherLoggedIn && !isStudentPath) || isHelperStudent;
       
       window.__loadedScriptType = loadTeacherScript ? 'teacher' : 'student';
-      var scriptSrc = loadTeacherScript ? 'app.js?v=1.0.49' : 'student.js?v=1.0.49';
+      var scriptSrc = loadTeacherScript ? 'app.js?v=1.0.50' : 'student.js?v=1.0.50';
 
       console.log('[Dashboard] 로드할 스크립트 타입:', window.__loadedScriptType, '->', scriptSrc);
 
