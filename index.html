@@ -916,6 +916,7 @@
             <h3 style="margin:0; border:none; padding:0;">오늘의 과제 수행 현황</h3>
             <!-- 과제 권한 학생에게만 노출될 관리용 버튼 영역 -->
             <div id="portal-task-manager-actions" class="hidden" style="display:flex; gap:6px;">
+              <button class="btn-primary" onclick="openPortalRosterPointsModal()" style="padding:4px 10px; font-size:12px; font-weight:bold; border-radius:6px; cursor:pointer; border:none; line-height:1.2; background:#3b82f6; color:white;">👥 친구 점수</button>
               <button class="btn-warning" onclick="openPortalUnsubmittedModal()" style="padding:4px 10px; font-size:12px; font-weight:bold; border-radius:6px; cursor:pointer; border:none; line-height:1.2; background:#f59e0b; color:white;">⚠️ 미제출자</button>
               <button class="btn-success" onclick="openCreateAssignmentModal(getTodayDateString())" style="padding:4px 10px; font-size:12px; font-weight:bold; border-radius:6px; cursor:pointer; border:none; line-height:1.2;">📝 생성</button>
               <button class="btn-danger" onclick="deleteDashboardAssignments()" style="padding:4px 10px; font-size:12px; font-weight:bold; border-radius:6px; cursor:pointer; border:none; line-height:1.2;">🗑️ 삭제</button>
@@ -954,6 +955,38 @@
       </div>
       <div id="portal-unsubmitted-modal-body" class="modal-body" style="flex-direction:column; padding:20px; gap:16px;">
         <!-- JS 동적 생성 -->
+      </div>
+    </div>
+  <!-- [NEW] 도우미용 친구들 점수 한눈에 보기 모달창 -->
+  <div id="portal-roster-points-modal" class="modal hidden">
+    <div class="modal-overlay" onclick="closePortalRosterPointsModal()"></div>
+    <div class="modal-content" style="max-width: 600px; width: 90%;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #3b82f6, #2563eb);">
+        <h2 style="font-size: 18px; font-weight: 800; color: var(--text-white);">👥 우리 반 친구들 신용 등급 및 점수</h2>
+        <button class="close-btn" onclick="closePortalRosterPointsModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="flex-direction: column; padding: 20px; gap: 12px;">
+        <p class="panel-desc" style="margin: 0;">우리 반 친구들의 현재 신용 점수와 등급을 한눈에 조회할 수 있습니다.</p>
+        
+        <!-- 검색 입력란 -->
+        <input type="text" id="portal-roster-search" oninput="filterPortalRosterList()" placeholder="이름 또는 학번 검색..." style="width: 100%; padding: 8px 12px; font-size: 13px; border: 1px solid var(--border-color); border-radius: 8px; outline: none; background: var(--bg-card); color: var(--text-main); margin-bottom: 8px;">
+        
+        <!-- 학생 점수 현황 테이블 -->
+        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+          <table class="admin-table" style="font-size: 13px;">
+            <thead>
+              <tr style="position: sticky; top: 0; background: var(--bg-card); z-index: 10;">
+                <th width="80px">번호</th>
+                <th>이름</th>
+                <th width="140px">신용등급</th>
+                <th width="100px">신용점수</th>
+              </tr>
+            </thead>
+            <tbody id="portal-roster-points-body">
+              <!-- JS 동적 생성 -->
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -1337,7 +1370,7 @@
       var loadTeacherScript = isElectron || hash.startsWith('#teacher') || isTeacherPending || (isTeacherLoggedIn && !isStudentPath) || isHelperStudent;
       
       window.__loadedScriptType = loadTeacherScript ? 'teacher' : 'student';
-      var scriptSrc = loadTeacherScript ? 'app.js?v=1.0.51' : 'student.js?v=1.0.51';
+      var scriptSrc = loadTeacherScript ? 'app.js?v=1.0.52' : 'student.js?v=1.0.52';
 
       console.log('[Dashboard] 로드할 스크립트 타입:', window.__loadedScriptType, '->', scriptSrc);
 

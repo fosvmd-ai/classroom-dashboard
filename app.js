@@ -4938,6 +4938,79 @@ const closePortalUnsubmittedModal = () => {
 window.openPortalUnsubmittedModal = openPortalUnsubmittedModal;
 window.closePortalUnsubmittedModal = closePortalUnsubmittedModal;
 
+const openPortalRosterPointsModal = () => {
+  const modal = document.getElementById('portal-roster-points-modal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  renderPortalRosterPoints();
+};
+
+const closePortalRosterPointsModal = () => {
+  const modal = document.getElementById('portal-roster-points-modal');
+  if (modal) modal.classList.add('hidden');
+};
+
+const renderPortalRosterPoints = () => {
+  const body = document.getElementById('portal-roster-points-body');
+  if (!body) return;
+  body.innerHTML = '';
+  
+  const sorted = [...students].sort((a, b) => a.student_id.localeCompare(b.student_id));
+  
+  sorted.forEach(s => {
+    const grade = evaluateGrade(s.total_points);
+    let gradeIconHtml = "";
+    if (grade.icon) {
+      gradeIconHtml = `<img src="${grade.icon}" alt="${grade.name}" style="width:16px; height:16px; border-radius:3px; vertical-align:middle; margin-right:4px;">`;
+    }
+    const gradeText = `${grade.emoji || '🌱'} ${grade.name}`;
+    
+    const tr = document.createElement('tr');
+    tr.className = 'portal-roster-row';
+    tr.dataset.studentId = s.student_id;
+    tr.dataset.studentName = s.name;
+    
+    tr.innerHTML = `
+      <td style="color:var(--text-muted); font-family: monospace;">${s.student_id}</td>
+      <td style="font-weight:bold; color:var(--text-main);">${s.name}</td>
+      <td>
+        <span style="font-size:11px; font-weight:bold; padding:2px 8px; border-radius:10px; background:rgba(99, 102, 241, 0.06); color:#4f46e5; border:1px solid rgba(99, 102, 241, 0.1); display:inline-flex; align-items:center;">
+          ${gradeIconHtml}${gradeText}
+        </span>
+      </td>
+      <td style="color:#4f46e5; font-weight:bold;">${s.total_points}점</td>
+    `;
+    body.appendChild(tr);
+  });
+  
+  const searchInput = document.getElementById('portal-roster-search');
+  if (searchInput) {
+    searchInput.value = '';
+  }
+  filterPortalRosterList();
+};
+
+const filterPortalRosterList = () => {
+  const searchInput = document.getElementById('portal-roster-search');
+  const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
+  
+  const rows = document.querySelectorAll('#portal-roster-points-body .portal-roster-row');
+  rows.forEach(row => {
+    const studentId = row.dataset.studentId || '';
+    const name = row.dataset.studentName ? row.dataset.studentName.toLowerCase() : '';
+    
+    if (studentId.includes(query) || name.includes(query)) {
+      row.style.display = '';
+    } else {
+      row.style.display = 'none';
+    }
+  });
+};
+
+window.openPortalRosterPointsModal = openPortalRosterPointsModal;
+window.closePortalRosterPointsModal = closePortalRosterPointsModal;
+window.filterPortalRosterList = filterPortalRosterList;
+
 const renderApprovalRequestsWidget = () => {
   const widgetEl = document.getElementById('approvals-widget');
   const countBadgeEl = document.getElementById('approval-count-badge');
