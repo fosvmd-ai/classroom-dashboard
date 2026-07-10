@@ -786,11 +786,11 @@ const initFirebaseSync = () => {
       return;
     }
 
-    // 최대 30회(3초) 재시도 후 포기
-    if (window.__firebaseSdkRetryCount <= 30) {
+    // 최대 100회(10초) 재시도 후 포기
+    if (window.__firebaseSdkRetryCount <= 100) {
       setTimeout(initFirebaseSync, 100);
     } else {
-      console.warn('[Firebase] SDK 로드 3초 초과 → 오프라인 모드 전환');
+      console.warn('[Firebase] SDK 로드 10초 초과 → 오프라인 모드 전환');
       isFirebaseDataLoaded = true;
       window.__showingCachedPortal = false;
       const syncBanner = document.getElementById('portal-sync-banner');
