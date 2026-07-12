@@ -44,7 +44,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Outfit:wght@300;400;500;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=1.0.34">
+  <link rel="stylesheet" href="style.css?v=1.0.35">
   <!-- Google Identity Services (GIS) SDK -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- Firebase JS SDK - async 병렬 로드 + 차단 감지 -->
@@ -961,6 +961,7 @@
         <!-- JS 동적 생성 -->
       </div>
     </div>
+  </div>
   <!-- [NEW] 도우미용 친구들 점수 한눈에 보기 모달창 -->
   <div id="portal-roster-points-modal" class="modal hidden">
     <div class="modal-overlay" onclick="closePortalRosterPointsModal()"></div>
@@ -1374,7 +1375,7 @@
       var loadTeacherScript = isElectron || hash.startsWith('#teacher') || isTeacherPending || (isTeacherLoggedIn && !isStudentPath) || isHelperStudent;
       
       window.__loadedScriptType = loadTeacherScript ? 'teacher' : 'student';
-      var scriptSrc = loadTeacherScript ? 'app.js?v=1.0.54' : 'student.js?v=1.0.54';
+      var scriptSrc = loadTeacherScript ? 'app.js?v=1.0.55' : 'student.js?v=1.0.55';
 
       console.log('[Dashboard] 로드할 스크립트 타입:', window.__loadedScriptType, '->', scriptSrc);
 
